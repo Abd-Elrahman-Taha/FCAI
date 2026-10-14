@@ -63,15 +63,15 @@ export const CampusLiveTicker: React.FC = () => {
 
   return (
     <div 
-      className="relative z-10 w-full mb-4 px-4 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md shadow-xs overflow-hidden flex items-center justify-between gap-3 text-xs"
+      className="relative z-10 w-full max-w-full mb-4 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md shadow-xs overflow-hidden flex items-center justify-between gap-3 text-xs"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
       {/* Left indicator: live pulse & label */}
       <div className="flex items-center gap-2 flex-shrink-0">
         <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-sky-500"></span>
         </span>
         <span className="font-bold tracking-wider uppercase text-[11px] text-slate-700 dark:text-slate-300">
           Campus Radar
@@ -80,7 +80,7 @@ export const CampusLiveTicker: React.FC = () => {
       </div>
 
       {/* Center: moving marquee items */}
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 min-w-0 overflow-hidden relative">
         <div 
           className={`flex items-center gap-8 whitespace-nowrap animate-marquee ${isPaused ? 'paused' : ''}`}
         >
@@ -88,8 +88,8 @@ export const CampusLiveTicker: React.FC = () => {
             <div key={`${item.id}-${idx}`} className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
                 item.badgeType === 'warning' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/40' :
-                item.badgeType === 'success' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300/40' :
-                item.badgeType === 'violet' ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-300/40' :
+                item.badgeType === 'success' ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-300/40' :
+                item.badgeType === 'violet' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300/40' :
                 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300/40'
               }`}>
                 {item.badge}

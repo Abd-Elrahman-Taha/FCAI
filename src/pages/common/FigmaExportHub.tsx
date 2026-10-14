@@ -18,7 +18,7 @@ export const FigmaExportHub: React.FC = () => {
         ice: { value: '#C1E8FF', type: 'color', description: 'Signature Highlight Ice Blue' }
       },
       semantic: {
-        success: { value: '#10b981', type: 'color' },
+        success: { value: '#38bdf8', type: 'color' },
         warning: { value: '#f59e0b', type: 'color' },
         danger: { value: '#ef4444', type: 'color' },
         info: { value: '#3b82f6', type: 'color' }
@@ -131,9 +131,9 @@ export const FigmaExportHub: React.FC = () => {
 
         <h4 className="bold mb-3" style={{ fontSize: '15px' }}>Semantic System Tokens</h4>
         <div className="grid g-4">
-          <div className="card p-3 text-center" style={{ background: '#ecfdf5', border: '1px solid #10b981', color: '#065f46' }}>
+          <div className="card p-3 text-center" style={{ background: '#f0f7ff', border: '1px solid #5483B3', color: '#052659' }}>
             <strong className="block">Success</strong>
-            <code>#10b981</code>
+            <code>#38bdf8</code>
           </div>
           <div className="card p-3 text-center" style={{ background: '#fffbeb', border: '1px solid #f59e0b', color: '#92400e' }}>
             <strong className="block">Warning</strong>

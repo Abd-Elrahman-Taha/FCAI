@@ -95,15 +95,15 @@ export const StudentCourseDetails: React.FC = () => {
           </div>
 
           {/* Student Eligibility Box */}
-          <div className="card p-5" style={{ background: '#ecfdf5', border: '1px solid #10b981' }}>
+          <div className="card p-5" style={{ background: '#f0f7ff', border: '1px solid #5483B3' }}>
             <div className="row gap-2 mb-2">
-              <Icon name="checkCircle" style={{ color: 'var(--color-success)' }} />
-              <strong style={{ color: '#065f46' }}>You Are Eligible to Register</strong>
+              <Icon name="checkCircle" style={{ color: '#5483B3' }} />
+              <strong style={{ color: '#052659' }}>You Are Eligible to Register</strong>
             </div>
-            <p className="sub text-xs leading-relaxed" style={{ color: '#047857' }}>
+            <p className="sub text-xs leading-relaxed" style={{ color: '#0b3a7a' }}>
               Your academic standing and prerequisite credits in CS204 qualify you to enroll in CS301 for this semester.
             </p>
-            <a href="#/student/registration/confirm" className="btn btn-success btn-sm w-full mt-3">
+            <a href="#/student/registration/confirm" className="btn btn-primary btn-sm w-full mt-3">
               Proceed to Registration
             </a>
           </div>

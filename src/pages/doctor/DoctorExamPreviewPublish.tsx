@@ -87,9 +87,9 @@ export const DoctorExamPreviewPublish: React.FC = () => {
         </div>
 
         {published ? (
-          <div className="card p-5 text-center" style={{ background: '#ecfdf5', border: '1px solid #10b981' }}>
+          <div className="card p-5 text-center" style={{ background: '#f0f7ff', border: '1px solid #5483B3' }}>
             <Icon name="checkCircle" size="lg" style={{ color: 'var(--color-success)', marginBottom: '8px' }} />
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#065f46' }}>Exam Officially Released!</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#052659' }}>Exam Officially Released!</h3>
             <p className="sub text-xs mt-1 mb-4">Exam has been published to 64 enrolled candidates. It will automatically unlock at scheduled time.</p>
             <div className="row-center gap-2">
               <a href="#/doctor/dashboard" className="btn btn-primary">Return to Dashboard</a>

@@ -39,7 +39,7 @@ export const LiveCampusPulse: React.FC<LiveCampusPulseProps> = ({
 
       <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Left Side: Live Activity & Frequency Visualizer */}
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-3.5 min-w-0 flex-1">
           {/* Animated Frequency Bars Box */}
           <div className="relative flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 dark:from-blue-700 dark:to-indigo-900 flex items-center justify-center shadow-md shadow-blue-500/20">
             {/* Animated dancing sound/signal frequency bars */}
@@ -52,13 +52,13 @@ export const LiveCampusPulse: React.FC<LiveCampusPulseProps> = ({
             </div>
             {/* Ping dot */}
             <span className="absolute -top-1 -right-1 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-white dark:border-slate-900"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-sky-500 border-2 border-white dark:border-slate-900"></span>
             </span>
           </div>
 
-          <div>
-            <div className="flex items-center gap-2 mb-1">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/50 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
                 Live Academic Stream
               </span>
@@ -82,8 +82,8 @@ export const LiveCampusPulse: React.FC<LiveCampusPulseProps> = ({
           </div>
         </div>
 
-        {/* Right Side: Live Countdown & Quick Action */}
-        <div className="flex items-center gap-3 self-end md:self-center">
+        {/* Right Side: Live Countdown & Quick Action (Solid Color Button) */}
+        <div className="flex items-center justify-between w-full md:w-auto gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200/60 dark:border-slate-800/60">
           <div className="text-right">
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 block">
               Starts In
@@ -96,7 +96,7 @@ export const LiveCampusPulse: React.FC<LiveCampusPulseProps> = ({
 
           <a
             href={role === 'doctor' ? '#/doctor/attendance-session' : '#/student/qr-attendance'}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs text-white bg-gradient-to-r from-blue-700 to-indigo-800 hover:from-blue-600 hover:to-indigo-700 active:scale-95 transition-all shadow-md shadow-blue-800/25 cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-[#052659] hover:bg-[#0b3a7a] active:scale-95 transition-all shadow-md shadow-blue-900/30 cursor-pointer whitespace-nowrap"
           >
             <Icon name={role === 'doctor' ? 'play' : 'qr'} size="sm" />
             <span>{role === 'doctor' ? 'Launch QR' : 'Scan Check-In'}</span>

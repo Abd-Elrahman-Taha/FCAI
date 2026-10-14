@@ -84,7 +84,7 @@ export const AdminGradeApproval: React.FC = () => {
             <strong className="block text-xs">Admin Audit</strong>
             <span className="sub text-xs">Bell-curve inspection</span>
           </div>
-          <div className="card p-3" style={{ background: '#dcfce7', border: '1px solid #10b981' }}>
+          <div className="card p-3" style={{ background: '#f0f7ff', border: '1px solid #5483B3' }}>
             <div className="badge badge-success mb-1">Step 4</div>
             <strong className="block text-xs">Dean Approved</strong>
             <span className="sub text-xs">Published to Students</span>

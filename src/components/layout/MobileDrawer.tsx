@@ -20,6 +20,7 @@ export const MobileDrawer: React.FC<{ activePath: string }> = ({ activePath }) =
     isMobileMenuOpen,
     closeMobileMenu,
     currentUser,
+    isAuthenticated,
     role,
     switchRole,
     logout,
@@ -214,13 +215,13 @@ export const MobileDrawer: React.FC<{ activePath: string }> = ({ activePath }) =
       <div className="mobile-drawer-content" onClick={e => e.stopPropagation()}>
         {/* Drawer Header */}
         <div className="mobile-drawer-head">
-          <div className="row gap-3">
+          <a href="#/home" onClick={closeMobileMenu} className="row gap-3 cursor-pointer" style={{ textDecoration: 'none' }} title="Go to FCAI BSU Home">
             <FCAILogo size={38} />
             <div>
               <b style={{ color: '#fff', fontSize: '15px', display: 'block', lineHeight: 1.2 }}>FCAI BSU</b>
               <span style={{ color: '#8fb0d6', fontSize: '11px' }}>Faculty of Computers &amp; AI</span>
             </div>
-          </div>
+          </a>
           <button
             type="button"
             className="mobile-close-btn"
@@ -231,27 +232,129 @@ export const MobileDrawer: React.FC<{ activePath: string }> = ({ activePath }) =
           </button>
         </div>
 
-        {/* User Profile Card */}
-        <div className="mobile-user-card">
-          <div className="row gap-3">
-            <div className="avatar sm" style={{ width: '42px', height: '42px', fontSize: '14px' }}>
-              {currentUser?.short || 'AH'}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <strong style={{ color: '#fff', fontSize: '14px', display: 'block' }} className="truncate">
-                {currentUser?.name || 'Ahmed Hassan'}
-              </strong>
-              <div className="row gap-2 mt-1">
-                <span className="badge b-info no-dot" style={{ fontSize: '10.5px', padding: '1px 8px', height: '18px' }}>
-                  {currentUser?.roleLabel}
-                </span>
-                <span style={{ color: '#C1E8FF', fontSize: '11px' }}>
-                  {currentUser?.studentCode || currentUser?.department}
-                </span>
+        {/* User Profile Card or Guest Visitor Banner */}
+        {isAuthenticated ? (
+          <div className="mobile-user-card">
+            {/* User Profile Information Row */}
+            <div className="row align-center gap-3" style={{ minWidth: 0 }}>
+              <div
+                className="avatar shrink-0 font-bold"
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  fontSize: '14px',
+                  borderRadius: '12px',
+                  background: '#38bdf8',
+                  color: '#020b17',
+                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
+                  boxShadow: '0 0 12px rgba(56, 189, 248, 0.35)'
+                }}
+              >
+                {currentUser?.short || 'AH'}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <strong
+                  style={{ color: '#ffffff', fontSize: '14px', fontWeight: 700, display: 'block', lineHeight: 1.25 }}
+                  className="truncate"
+                >
+                  {currentUser?.name || 'Ahmed Hassan'}
+                </strong>
+                <div className="row align-center gap-2 mt-1" style={{ flexWrap: 'wrap' }}>
+                  <span
+                    className="badge b-info no-dot"
+                    style={{
+                      fontSize: '10px',
+                      padding: '2px 7px',
+                      borderRadius: '6px',
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {currentUser?.roleLabel}
+                  </span>
+                  {(currentUser?.department || currentUser?.studentCode) && (
+                    <span
+                      style={{
+                        color: '#93c5fd',
+                        fontSize: '11px',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: '150px'
+                      }}
+                      title={currentUser?.department || currentUser?.studentCode}
+                    >
+                      {currentUser?.department || currentUser?.studentCode}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* Dedicated Action Row - Eliminates any text collision or overlap */}
+            <div
+              className="row-between align-center mt-3 pt-2.5"
+              style={{ borderTop: '1px solid rgba(56, 189, 248, 0.16)' }}
+            >
+              <div className="row align-center gap-1.5">
+                <span
+                  style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    backgroundColor: '#38bdf8',
+                    boxShadow: '0 0 8px #38bdf8'
+                  }}
+                />
+                <span style={{ fontSize: '11px', color: '#7dd3fc', fontWeight: 600 }}>
+                  Active Session
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSignOut}
+                title="Sign Out of Session"
+                className="cursor-pointer"
+                style={{
+                  background: 'rgba(239, 68, 68, 0.18)',
+                  color: '#fca5a5',
+                  border: '1px solid rgba(239, 68, 68, 0.45)',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  height: '28px',
+                  padding: '0 10px',
+                  borderRadius: '8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <Icon name="logout" size="sm" />
+                <span>Sign Out</span>
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="mobile-user-card" style={{ background: '#071933', border: '1px solid rgba(56, 189, 248, 0.35)' }}>
+            <div className="row-between align-center gap-3">
+              <div>
+                <b style={{ color: '#fff', fontSize: '13.5px', display: 'block' }}>Guest Visitor</b>
+                <span style={{ color: '#C1E8FF', fontSize: '11px' }}>Sign in to access your portal</span>
+              </div>
+              <a
+                href="#/login"
+                onClick={closeMobileMenu}
+                className="cta-primary inline-flex items-center justify-center font-black text-xs rounded-xl px-4 py-2 cursor-pointer"
+              >
+                Sign In
+              </a>
+            </div>
+          </div>
+        )}
 
         {/* Quick Role Switcher */}
         <div className="mobile-role-selector">
@@ -316,13 +419,67 @@ export const MobileDrawer: React.FC<{ activePath: string }> = ({ activePath }) =
             </div>
           ))}
 
-          {/* Quick Hub Links */}
+          {/* Public Pages & Quick Hub Links */}
           <div className="mobile-nav-group">
-            <div className="mobile-group-title">DIRECT DIRECTORIES</div>
+            <div className="mobile-group-title">CAMPUS SHOWCASE PAGES</div>
             <div className="col gap-1">
               <button
                 type="button"
-                className="mobile-nav-item"
+                className={`mobile-nav-item ${clean === 'home' || clean === '' ? 'active' : ''}`}
+                onClick={() => { window.location.hash = '#/home'; closeMobileMenu(); }}
+              >
+                <Icon name="home" size="md" />
+                <span style={{ flex: 1, textAlign: 'left' }}>Home Landing Page</span>
+                <Icon name="chevronRight" size="sm" className="mobile-chevron" />
+              </button>
+              <button
+                type="button"
+                className={`mobile-nav-item ${clean === 'departments' ? 'active' : ''}`}
+                onClick={() => { window.location.hash = '#/departments'; closeMobileMenu(); }}
+              >
+                <Icon name="layers" size="md" />
+                <span style={{ flex: 1, textAlign: 'left' }}>Academic Departments</span>
+                <Icon name="chevronRight" size="sm" className="mobile-chevron" />
+              </button>
+              <button
+                type="button"
+                className={`mobile-nav-item ${clean === 'features' ? 'active' : ''}`}
+                onClick={() => { window.location.hash = '#/features'; closeMobileMenu(); }}
+              >
+                <Icon name="sparkles" size="md" />
+                <span style={{ flex: 1, textAlign: 'left' }}>Smart Features</span>
+                <Icon name="chevronRight" size="sm" className="mobile-chevron" />
+              </button>
+              <button
+                type="button"
+                className={`mobile-nav-item ${clean === 'assistant' ? 'active' : ''}`}
+                onClick={() => { window.location.hash = '#/assistant'; closeMobileMenu(); }}
+              >
+                <Icon name="sparkles" size="md" />
+                <span style={{ flex: 1, textAlign: 'left' }}>AI Study Assistant</span>
+                <Icon name="chevronRight" size="sm" className="mobile-chevron" />
+              </button>
+              <button
+                type="button"
+                className={`mobile-nav-item ${clean === 'metrics' ? 'active' : ''}`}
+                onClick={() => { window.location.hash = '#/metrics'; closeMobileMenu(); }}
+              >
+                <Icon name="barChart" size="md" />
+                <span style={{ flex: 1, textAlign: 'left' }}>Platform Numbers</span>
+                <Icon name="chevronRight" size="sm" className="mobile-chevron" />
+              </button>
+              <button
+                type="button"
+                className={`mobile-nav-item ${clean === 'faq' ? 'active' : ''}`}
+                onClick={() => { window.location.hash = '#/faq'; closeMobileMenu(); }}
+              >
+                <Icon name="helpCircle" size="md" />
+                <span style={{ flex: 1, textAlign: 'left' }}>Help &amp; FAQ</span>
+                <Icon name="chevronRight" size="sm" className="mobile-chevron" />
+              </button>
+              <button
+                type="button"
+                className={`mobile-nav-item ${clean === 'screens' ? 'active' : ''}`}
                 onClick={() => { window.location.hash = '#/screens'; closeMobileMenu(); }}
               >
                 <Icon name="grid" size="md" />
@@ -331,18 +488,44 @@ export const MobileDrawer: React.FC<{ activePath: string }> = ({ activePath }) =
               </button>
             </div>
           </div>
+
+
         </div>
 
-        {/* Drawer Footer with Prominent, Easy-to-Reach Red Sign Out Button */}
+        {/* Drawer Footer with Prominent Button */}
         <div className="mobile-drawer-foot">
-          <button
-            type="button"
-            className="mobile-signout-btn"
-            onClick={handleSignOut}
-          >
-            <Icon name="logout" size="lg" />
-            <span>Sign Out of FCAI Platform</span>
-          </button>
+          {isAuthenticated ? (
+            <button
+              type="button"
+              className="mobile-signout-btn"
+              onClick={handleSignOut}
+            >
+              <Icon name="logout" size="lg" />
+              <span>Sign Out of FCAI Platform</span>
+            </button>
+          ) : (
+            <a
+              href="#/login"
+              onClick={closeMobileMenu}
+              className="btn btn-block"
+              style={{
+                background: '#38bdf8',
+                color: '#020b17',
+                fontWeight: 800,
+                fontSize: '13.5px',
+                borderRadius: '12px',
+                padding: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                textDecoration: 'none'
+              }}
+            >
+              <Icon name="user" size="md" />
+              <span>Sign In / Login to Portal</span>
+            </a>
+          )}
         </div>
       </div>
     </div>

@@ -229,7 +229,7 @@ export const StudentTimetable: React.FC = () => {
                 <i style={{ background: '#38bdf8', width: '10px', height: '10px', borderRadius: '3px' }}></i> Lecture
               </span>
               <span className="legend">
-                <i style={{ background: '#34d399', width: '10px', height: '10px', borderRadius: '3px' }}></i> Lab / Section
+                <i style={{ background: '#5483B3', width: '10px', height: '10px', borderRadius: '3px' }}></i> Lab / Section
               </span>
             </div>
 
@@ -375,7 +375,7 @@ export const StudentTimetable: React.FC = () => {
                               borderRadius: '10px',
                               padding: '8px 10px',
                               cursor: 'pointer',
-                              borderLeft: isLecture ? '4px solid #0284c7' : '4px solid #10b981',
+                              borderLeft: isLecture ? '4px solid #0284c7' : '4px solid #5483B3',
                               borderTop: '1px solid var(--border)',
                               borderRight: '1px solid var(--border)',
                               borderBottom: '1px solid var(--border)',
@@ -404,8 +404,8 @@ export const StudentTimetable: React.FC = () => {
                                     fontSize: '9.5px',
                                     height: '18px',
                                     padding: '0 6px',
-                                    background: isLecture ? 'rgba(2, 132, 199, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                                    color: isLecture ? '#0284c7' : '#10b981',
+                                    background: isLecture ? 'rgba(2, 132, 199, 0.15)' : 'rgba(84, 131, 179, 0.15)',
+                                    color: isLecture ? '#0284c7' : '#5483B3',
                                     fontWeight: 700
                                   }}
                                 >
@@ -530,7 +530,7 @@ export const StudentTimetable: React.FC = () => {
                         key={session.id}
                         className="card p-4 hover cursor-pointer"
                         style={{
-                          borderLeft: isLecture ? '4px solid #0284c7' : '4px solid #10b981',
+                          borderLeft: isLecture ? '4px solid #0284c7' : '4px solid #5483B3',
                           background: 'var(--surface)',
                           transition: 'all 0.2s ease'
                         }}
@@ -543,14 +543,14 @@ export const StudentTimetable: React.FC = () => {
                               style={{
                                 fontSize: '11px',
                                 fontWeight: 700,
-                                background: isLecture ? 'rgba(2, 132, 199, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                                color: isLecture ? '#0284c7' : '#10b981'
+                                background: isLecture ? 'rgba(2, 132, 199, 0.15)' : 'rgba(84, 131, 179, 0.15)',
+                                color: isLecture ? '#0284c7' : '#5483B3'
                               }}
                             >
                               {session.courseCode}
                             </span>
                             <b style={{ fontSize: '15px' }}>{session.courseName}</b>
-                            <span className={`badge ${isLecture ? 'b-info' : 'b-success'} no-dot`}>
+                            <span className={`badge ${isLecture ? 'b-info' : 'b-navy'} no-dot`}>
                               {session.sessionType}
                             </span>
                           </div>
@@ -594,8 +594,8 @@ export const StudentTimetable: React.FC = () => {
               <div
                 className="modal-ico"
                 style={{
-                  background: selectedSession.sessionType === 'Lecture' ? 'rgba(2, 132, 199, 0.18)' : 'rgba(16, 185, 129, 0.18)',
-                  color: selectedSession.sessionType === 'Lecture' ? '#0284c7' : '#10b981'
+                  background: selectedSession.sessionType === 'Lecture' ? 'rgba(2, 132, 199, 0.18)' : 'rgba(84, 131, 179, 0.18)',
+                  color: selectedSession.sessionType === 'Lecture' ? '#0284c7' : '#5483B3'
                 }}
               >
                 <Icon name={selectedSession.sessionType === 'Lecture' ? 'book' : 'layers'} size="lg" />

@@ -279,7 +279,7 @@ export const Sidebar: React.FC<{ activePath: string }> = ({ activePath }) => {
 
   return (
     <aside className="sidebar" aria-label="Main navigation">
-      <a className="sb-brand" href={`#/${role}/dashboard`}>
+      <a className="sb-brand cursor-pointer" href="#/home" title="Go to FCAI BSU Home">
         <FCAILogo size={40} />
         {!isSidebarCollapsed && (
           <div className="sb-brand-text">

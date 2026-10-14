@@ -7,6 +7,7 @@ import { Login } from './pages/auth/Login';
 import { FirstLogin } from './pages/auth/FirstLogin';
 import { ForgotPassword } from './pages/auth/ForgotPassword';
 import { ResetPassword } from './pages/auth/ResetPassword';
+import { Signup } from './pages/auth/Signup';
 import { AccountSecurity } from './pages/auth/AccountSecurity';
 import { CreateStudentAccount } from './pages/admin/CreateStudentAccount';
 import { UserAccountManagement } from './pages/admin/UserAccountManagement';
@@ -128,6 +129,12 @@ import { EmployeeStudentLookup } from './pages/employee/EmployeeStudentLookup';
 // Common Directory & Figma Hub
 import { ScreensDirectory } from './pages/common/ScreensDirectory';
 import { FigmaExportHub } from './pages/common/FigmaExportHub';
+import { HomePage } from './pages/common/HomePage';
+import { DepartmentsPage } from './pages/public/DepartmentsPage';
+import { SmartFeaturesPage } from './pages/public/SmartFeaturesPage';
+import { AIAssistantLandingPage } from './pages/public/AIAssistantLandingPage';
+import { PlatformMetricsPage } from './pages/public/PlatformMetricsPage';
+import { FaqPage } from './pages/public/FaqPage';
 
 const RouterView: React.FC = () => {
   const { role, switchRole } = useAuth();
@@ -151,6 +158,26 @@ const RouterView: React.FC = () => {
 
   const cleanPath = currentHash.replace(/^#\/?/, '').toLowerCase();
 
+  // Standalone Modern Futuristic Public Landing & Feature Showcase Pages
+  if (cleanPath === '' || cleanPath === 'home' || cleanPath === 'landing' || cleanPath === 'welcome') {
+    return <HomePage />;
+  }
+  if (cleanPath === 'departments') {
+    return <DepartmentsPage />;
+  }
+  if (cleanPath === 'features' || cleanPath === 'smart-features') {
+    return <SmartFeaturesPage />;
+  }
+  if (cleanPath === 'assistant' || cleanPath === 'ai-assistant') {
+    return <AIAssistantLandingPage />;
+  }
+  if (cleanPath === 'metrics' || cleanPath === 'numbers' || cleanPath === 'platform-numbers') {
+    return <PlatformMetricsPage />;
+  }
+  if (cleanPath === 'faq' || cleanPath === 'help') {
+    return <FaqPage />;
+  }
+
   // Standalone Authentication & Fullscreen screens
   if (cleanPath === 'login' || cleanPath === 'screen/1') {
     return <Login onLoginSuccess={() => { window.location.hash = `#/${role}/dashboard`; }} />;
@@ -163,6 +190,9 @@ const RouterView: React.FC = () => {
   }
   if (cleanPath === 'reset-password' || cleanPath === 'screen/4') {
     return <ResetPassword />;
+  }
+  if (cleanPath === 'signup' || cleanPath === 'register' || cleanPath === 'enrollment') {
+    return <Signup />;
   }
   if (cleanPath === 'student/exam-player' || cleanPath === 'screen/21') {
     return (

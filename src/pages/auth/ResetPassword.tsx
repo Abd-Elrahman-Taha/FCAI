@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Icon, FCAILogo } from '../../components/icons/Icon';
 
 export const ResetPassword: React.FC = () => {
@@ -28,15 +29,21 @@ export const ResetPassword: React.FC = () => {
   };
 
   return (
-    <div className="auth">
-      <aside className="auth-art" aria-hidden="false">
-        <div className="row" style={{ position: 'relative', zIndex: 2 }}>
+    <div className="auth min-h-screen bg-slate-100 dark:bg-[#020b17] text-slate-800 dark:text-slate-100">
+      <motion.aside
+        initial={{ opacity: 0, x: -30 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        className="auth-art"
+        aria-hidden="false"
+      >
+        <a href="#/home" className="row cursor-pointer" style={{ position: 'relative', zIndex: 2, textDecoration: 'none' }} title="Go to FCAI BSU Home">
           <FCAILogo size={46} />
           <div>
-            <b style={{ fontSize: '16px', display: 'block', color: 'var(--text)' }}>FCAI · Beni Suef University</b>
-            <span style={{ fontSize: '12.5px', color: 'var(--text-muted)', fontWeight: 500 }}>Faculty of Computers &amp; AI</span>
+            <b style={{ fontSize: '16px', display: 'block', color: '#ffffff' }}>FCAI · Beni Suef University</b>
+            <span style={{ fontSize: '12.5px', color: '#c4dbf3', fontWeight: 500 }}>Faculty of Computers &amp; AI</span>
           </div>
-        </div>
+        </a>
         <div style={{ position: 'relative', zIndex: 2, maxWidth: '440px' }}>
           <span className="hero-chip mb-4"><Icon name="key" size="sm" /> Password Reset</span>
           <h2 style={{ fontSize: '30px', fontWeight: 750, color: '#fff', marginTop: '12px' }}>Choose a new password</h2>
@@ -44,10 +51,15 @@ export const ResetPassword: React.FC = () => {
             Set a secure new password for your FCAI BSU institutional profile.
           </p>
         </div>
-      </aside>
+      </motion.aside>
 
-      <div className="auth-form">
-        <div className="auth-card">
+      <motion.div
+        initial={{ opacity: 0, y: 22 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+        className="auth-form relative bg-slate-100/70 dark:bg-[#020b17] flex items-center justify-center p-6 sm:p-10"
+      >
+        <div className="auth-card bg-white dark:bg-[#071933]/90 rounded-3xl p-7 sm:p-9 shadow-xl dark:shadow-2xl border border-slate-200/90 dark:border-sky-500/25">
           {isSuccess ? (
             <div className="state" style={{ padding: 0 }}>
               <div className="state-art success"><Icon name="checkCircle" size="xl" /></div>
@@ -104,7 +116,7 @@ export const ResetPassword: React.FC = () => {
             </>
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

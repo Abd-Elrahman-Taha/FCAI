@@ -100,9 +100,9 @@ export const StudentRegistrationConfirmation: React.FC = () => {
         </div>
 
         {confirmed ? (
-          <div className="card p-5 text-center" style={{ background: '#ecfdf5', border: '1px solid #10b981' }}>
-            <Icon name="checkCircle" size="lg" style={{ color: 'var(--color-success)', marginBottom: '8px' }} />
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#065f46' }}>Official Enrollment Confirmed!</h3>
+          <div className="card p-5 text-center" style={{ background: '#f0f7ff', border: '1px solid #5483B3' }}>
+            <Icon name="checkCircle" size="lg" style={{ color: '#5483B3', marginBottom: '8px' }} />
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#052659' }}>Official Enrollment Confirmed!</h3>
             <p className="sub text-xs mt-1 mb-4">You are now officially registered in CS301 for Fall 2026. Your timetable has been updated.</p>
             <div className="row-center gap-2">
               <a href="#/student/courses" className="btn btn-primary">Go to My Courses</a>

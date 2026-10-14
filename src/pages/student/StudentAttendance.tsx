@@ -89,7 +89,7 @@ export const StudentAttendance: React.FC = () => {
         <div className="card kpi">
           <div className="kpi-top">
             <span className="kpi-label">Officially Excused</span>
-            <span className="kpi-ico teal"><Icon name="shieldCheck" /></span>
+            <span className="kpi-ico blue"><Icon name="shieldCheck" /></span>
           </div>
           <div className="kpi-value">{excusedSessions}</div>
           <div className="kpi-meta">Medical / Dean approved</div>
@@ -187,7 +187,7 @@ export const StudentAttendance: React.FC = () => {
                           ? 'b-danger'
                           : s.status === 'Late'
                           ? 'b-warning'
-                          : 'b-teal'
+                          : 'b-navy'
                       }`}
                     >
                       {s.status}

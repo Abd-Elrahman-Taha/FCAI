@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { Icon, FCAILogo } from '../../components/icons/Icon';
 import { EducationHeroIllustration } from '../../components/auth/EducationHeroIllustration';
 import type { Role } from '../../types';
 
 export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSuccess }) => {
-  const { switchRole, theme, toggleTheme } = useAuth();
+  const { login, theme, toggleTheme } = useAuth();
   const [isStaff, setIsStaff] = useState(false);
 
   const [nationalId, setNationalId] = useState('30302152201234');
@@ -24,7 +25,7 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
 
     try {
       const targetRole: Role = isStaff ? 'doctor' : 'student';
-      await switchRole(targetRole);
+      await login(targetRole);
       if (onLoginSuccess) {
         onLoginSuccess();
       } else {
@@ -38,20 +39,26 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
   };
 
   return (
-    <div className="auth">
+    <div className="auth min-h-screen bg-slate-100 dark:bg-[#020b17] text-slate-800 dark:text-slate-100">
       {/* Brand panel with palette pill stack & shine */}
-      <aside className="auth-art" aria-hidden="false">
-        <div className="row" style={{ position: 'relative', zIndex: 2 }}>
+      <motion.aside
+        initial={{ opacity: 0, x: -30 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        className="auth-art"
+        aria-hidden="false"
+      >
+        <a href="#/home" className="row cursor-pointer" style={{ position: 'relative', zIndex: 2, textDecoration: 'none' }} title="Go to FCAI BSU Home">
           <FCAILogo size={46} />
           <div>
             <b style={{ fontSize: '16px', display: 'block', color: '#ffffff' }}>
               FCAI · Beni Suef University
             </b>
-            <span style={{ fontSize: '12.5px', color: '#f8f8f8', fontWeight: 500 }}>
+            <span style={{ fontSize: '12.5px', color: '#c4dbf3', fontWeight: 500 }}>
               Faculty of Computers &amp; Artificial Intelligence
             </span>
           </div>
-        </div>
+        </a>
 
         {/* Educational blue-themed illustration */}
         <EducationHeroIllustration />
@@ -73,15 +80,20 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
             <span className="row gap-2"><Icon name="idCard" size="sm" /> College Staff</span>
           </div>
         </div>
-      </aside>
+      </motion.aside>
 
       {/* Login form */}
-      <div className="auth-form relative">
+      <motion.div
+        initial={{ opacity: 0, y: 22 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+        className="auth-form relative bg-slate-100/70 dark:bg-[#020b17] flex items-center justify-center p-6 sm:p-10"
+      >
         {/* Floating Theme Mode Toggle */}
         <div className="absolute top-5 right-5 z-20">
           <button
             type="button"
-            className="icon-btn theme-toggle-btn shadow-xs bg-white/70 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 backdrop-blur-md rounded-xl"
+            className="icon-btn theme-toggle-btn shadow-xs bg-white dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 backdrop-blur-md rounded-xl text-slate-700 dark:text-amber-400 cursor-pointer"
             onClick={toggleTheme}
             aria-label={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
             title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
@@ -90,57 +102,68 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
           </button>
         </div>
 
-        <div className="auth-card">
-
-          <div style={{ marginBottom: '26px' }}>
-            <span className="badge b-info no-dot mb-4">
+        <div className="auth-card w-full max-w-md bg-white dark:bg-[#071933]/90 rounded-3xl p-7 sm:p-9 shadow-xl dark:shadow-2xl border border-slate-200/90 dark:border-sky-500/25 backdrop-blur-xl transition-all">
+          <div className="mb-6">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-sky-100 text-sky-900 border border-sky-300 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30 mb-3">
               <Icon name="lock" size="sm" /> Institutional Single Sign-On
             </span>
-            <h1 style={{ fontSize: '28px', fontWeight: 750, letterSpacing: '-.02em', marginTop: '14px' }}>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">
               Welcome back
             </h1>
-            <p className="muted mt-2">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-2">
               Sign in to the FCAI BSU Platform with credentials provided by the College Administration.
             </p>
           </div>
 
           {/* Account type switch */}
-          <div className="role-tabs mb-6" role="tablist" aria-label="Account type">
+          <div className="p-1 rounded-xl bg-slate-100 dark:bg-slate-900/90 border border-slate-300 dark:border-sky-500/30 grid grid-cols-2 gap-1 mb-6" role="tablist" aria-label="Account type">
             <button
               type="button"
-              className={!isStaff ? 'active' : ''}
+              className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                !isStaff
+                  ? 'cta-primary shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+              }`}
               onClick={() => { setIsStaff(false); setError(null); }}
             >
-              <Icon name="graduation" size="sm" /> Student
+              <Icon name="graduation" size="sm" /> <span>Student</span>
             </button>
             <button
               type="button"
-              className={isStaff ? 'active' : ''}
+              className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                isStaff
+                  ? 'cta-primary shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+              }`}
               onClick={() => { setIsStaff(true); setError(null); }}
             >
-              <Icon name="briefcase" size="sm" /> Faculty &amp; Staff
+              <Icon name="briefcase" size="sm" /> <span>Faculty &amp; Staff</span>
             </button>
           </div>
 
           {error && (
-            <div className="alert alert-danger mb-4">
-              <Icon name="alertCircle" />
+            <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-500/40 text-xs text-red-900 dark:text-red-200 flex items-start gap-3 mb-5">
+              <Icon name="alertCircle" size="md" className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
               <div>
-                <b>We couldn't sign you in</b>
-                <p>{error}</p>
+                <b className="block font-bold">We couldn't sign you in</b>
+                <p className="mt-0.5 text-red-800 dark:text-red-300">{error}</p>
               </div>
             </div>
           )}
 
-          <form className="col gap-4" onSubmit={handleSubmit}>
+          <form className="space-y-4" onSubmit={handleSubmit}>
             {!isStaff ? (
               <>
-                <div className="field">
-                  <label className="label">National ID (14 Digits)</label>
-                  <div className="input-group">
-                    <span className="lead"><Icon name="idCard" size="sm" /></span>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    National ID (14 Digits)
+                  </label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3.5 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
+                      <Icon name="idCard" size="sm" />
+                    </span>
                     <input
-                      className="input"
+                      className="w-full h-11 pl-10 pr-4 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-sm font-medium transition-all"
                       type="text"
                       maxLength={14}
                       value={nationalId}
@@ -149,15 +172,21 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
                       required
                     />
                   </div>
-                  <span className="hint">Enter the 14 digits exactly as on your Egyptian National ID card.</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
+                    Enter the 14 digits exactly as on your Egyptian National ID card.
+                  </span>
                 </div>
 
-                <div className="field">
-                  <label className="label">Student Code</label>
-                  <div className="input-group">
-                    <span className="lead"><Icon name="hash" size="sm" /></span>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Student Code
+                  </label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3.5 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
+                      <Icon name="hash" size="sm" />
+                    </span>
                     <input
-                      className="input"
+                      className="w-full h-11 pl-10 pr-4 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-sm font-medium transition-all"
                       type="text"
                       value={studentCode}
                       onChange={e => setStudentCode(e.target.value)}
@@ -168,12 +197,16 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
                 </div>
               </>
             ) : (
-              <div className="field">
-                <label className="label">Institutional Email</label>
-                <div className="input-group">
-                  <span className="lead"><Icon name="mail" size="sm" /></span>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  Institutional Email
+                </label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3.5 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
+                    <Icon name="mail" size="sm" />
+                  </span>
                   <input
-                    className="input"
+                    className="w-full h-11 pl-10 pr-4 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-sm font-medium transition-all"
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
@@ -181,21 +214,27 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
                     required
                   />
                 </div>
-                <span className="hint">Must end with @fcai.bsu.edu.eg</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
+                  Must end with @fcai.bsu.edu.eg
+                </span>
               </div>
             )}
 
-            <div className="field">
-              <div className="row-between">
-                <label className="label">Password</label>
-                <a href="#/forgot-password" className="text-sm fw-6" style={{ color: 'var(--navy-800)' }}>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Password
+                </label>
+                <a href="#/forgot-password" className="text-xs font-bold text-sky-700 hover:text-sky-900 dark:text-sky-400 dark:hover:text-sky-300">
                   Forgot password?
                 </a>
               </div>
-              <div className="input-group">
-                <span className="lead"><Icon name="lock" size="sm" /></span>
+              <div className="relative flex items-center">
+                <span className="absolute left-3.5 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
+                  <Icon name="lock" size="sm" />
+                </span>
                 <input
-                  className="input"
+                  className="w-full h-11 pl-10 pr-11 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-sm font-medium transition-all"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
@@ -204,56 +243,71 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
                 />
                 <button
                   type="button"
-                  className="icon-btn trail"
+                  className="absolute right-3 text-slate-400 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
                   onClick={() => setShowPassword(p => !p)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  style={{ width: '34px', height: '34px' }}
                 >
                   <Icon name={showPassword ? 'eyeOff' : 'eye'} size="sm" />
                 </button>
               </div>
             </div>
 
-            <label className="check">
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={rememberMe}
                 onChange={e => setRememberMe(e.target.checked)}
+                className="rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
               />
-              Keep me signed in on this device for 7 days
+              <span>Keep me signed in on this device for 7 days</span>
             </label>
 
-            <button className="btn btn-primary btn-lg btn-block mt-2" type="submit" disabled={isLoading}>
+            <button
+              className="cta-primary w-full h-12 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md active:scale-98 mt-2"
+              type="submit"
+              disabled={isLoading}
+            >
               {isLoading ? (
                 <>
-                  <span className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px', borderTopColor: '#fff' }} />
-                  Signing in…
+                  <span className="spinner w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  <span>Signing in…</span>
                 </>
               ) : (
                 <>
-                  Sign in to Platform <Icon name="arrowRight" size="sm" />
+                  <span>Sign In to Platform</span>
+                  <Icon name="arrowRight" size="sm" />
                 </>
               )}
             </button>
           </form>
 
-          <div className="alert alert-info mt-6">
-            <Icon name="info" />
+          <div className="mt-6 p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-500/30 text-xs text-sky-950 dark:text-sky-200 flex items-start gap-3">
+            <Icon name="info" size="md" className="text-sky-600 dark:text-sky-400 flex-shrink-0 mt-0.5" />
             <div>
-              <b>No account yet?</b>
-              <p>Accounts are issued strictly by the College Administration. Public self-registration is disabled.</p>
+              <b className="block font-bold">New student or faculty member?</b>
+              <p className="mt-0.5 text-slate-600 dark:text-slate-300">
+                Accounts are managed by College Administration. You can also{' '}
+                <a href="#/signup" className="text-sky-700 dark:text-sky-400 font-bold hover:underline">
+                  submit an enrollment request
+                </a>.
+              </p>
             </div>
           </div>
 
-          <div className="mt-6 text-xs faint center">
-            Demo quick routes: <a href="#/first-login">First login (temp password)</a> · <a href="#/screens">All 60+ screens catalog</a>
+          <div className="mt-6 text-xs text-slate-500 dark:text-slate-400 text-center space-x-1">
+            <span>Demo quick routes:</span>
+            <a href="#/first-login" className="text-sky-700 dark:text-sky-400 hover:underline font-semibold">First login</a>
+            <span>·</span>
+            <a href="#/signup" className="text-sky-700 dark:text-sky-400 hover:underline font-semibold">Sign up / Enrollment</a>
+            <span>·</span>
+            <a href="#/screens" className="text-sky-700 dark:text-sky-400 hover:underline font-semibold">All 106 screens catalog</a>
           </div>
 
-          <p className="text-xs faint center mt-4">
+          <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-4">
             © 2026 Faculty of Computers &amp; AI · Beni Suef University
           </p>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

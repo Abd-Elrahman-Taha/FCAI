@@ -61,15 +61,15 @@ export const StudentServiceRequestDetails: React.FC = () => {
 
           {/* Official Resolution Notes */}
           {request.resolutionNotes && (
-            <div className="card p-4" style={{ background: '#ecfdf5', border: '1px solid #10b981' }}>
+            <div className="card p-4" style={{ background: '#f0f7ff', border: '1px solid #5483B3' }}>
               <div className="row gap-2 mb-1">
-                <Icon name="checkCircle" style={{ color: 'var(--color-success)' }} />
-                <strong style={{ color: '#065f46' }}>Official Fulfillment &amp; Resolution:</strong>
+                <Icon name="checkCircle" style={{ color: '#5483B3' }} />
+                <strong style={{ color: '#052659' }}>Official Fulfillment &amp; Resolution:</strong>
               </div>
-              <p className="sub leading-relaxed text-sm" style={{ color: '#047857' }}>
+              <p className="sub leading-relaxed text-sm" style={{ color: '#0b3a7a' }}>
                 {request.resolutionNotes}
               </p>
-              <div className="sub text-xs mt-2" style={{ color: '#059669' }}>
+              <div className="sub text-xs mt-2" style={{ color: '#5483B3' }}>
                 Resolved Date: {request.resolvedDate}
               </div>
             </div>

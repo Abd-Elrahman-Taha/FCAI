@@ -124,7 +124,7 @@ export const EducationHeroIllustration: React.FC = () => {
             <rect x="165" y="170" width="210" height="24" rx="12" fill="#052659" />
             <circle cx="180" cy="182" r="3.5" fill="#EF4444" />
             <circle cx="192" cy="182" r="3.5" fill="#F59E0B" />
-            <circle cx="204" cy="182" r="3.5" fill="#10B981" />
+            <circle cx="204" cy="182" r="3.5" fill="#38bdf8" />
             <rect x="225" y="178" width="90" height="8" rx="4" fill="#5483B3" opacity="0.5" />
 
             {/* Code & Learning lines on screen */}

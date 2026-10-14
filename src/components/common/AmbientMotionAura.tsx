@@ -3,36 +3,43 @@ import React from 'react';
 /**
  * AmbientMotionAura
  * Renders smooth floating ambient light orbs in the background
- * providing a living, breathing modern UI feel after logging in.
+ * providing a living, breathing modern cyber UI feel matching the Home Page.
  */
 export const AmbientMotionAura: React.FC = () => {
   return (
     <div 
       className="fixed inset-0 pointer-events-none overflow-hidden z-0" 
       aria-hidden="true"
-      style={{ opacity: 'var(--aura-opacity, 0.45)' }}
     >
-      {/* Orb 1: Floating Royal Blue Orb */}
+      {/* Orb 1: Electric Blue Orb - Top Left */}
       <div 
-        className="absolute w-[520px] h-[520px] rounded-full blur-[110px] -top-24 -left-20 animate-aura-slow"
+        className="absolute w-[580px] h-[580px] rounded-full blur-[130px] -top-32 -left-24 animate-orb-float opacity-30 dark:opacity-25"
         style={{
-          background: 'radial-gradient(circle, rgba(84, 131, 179, 0.35) 0%, rgba(5, 38, 89, 0.15) 70%, transparent 100%)',
+          background: 'radial-gradient(circle, rgba(37, 99, 235, 0.4) 0%, rgba(2, 11, 23, 0) 70%)',
         }}
       />
 
-      {/* Orb 2: Floating Ice Accent Orb */}
+      {/* Orb 2: Neon Cyan Orb - Center Right */}
       <div 
-        className="absolute w-[440px] h-[440px] rounded-full blur-[95px] top-1/3 -right-24 animate-aura-reverse"
+        className="absolute w-[520px] h-[520px] rounded-full blur-[120px] top-1/4 -right-20 animate-float-slow opacity-35 dark:opacity-25"
         style={{
-          background: 'radial-gradient(circle, rgba(193, 232, 255, 0.32) 0%, rgba(84, 131, 179, 0.12) 70%, transparent 100%)',
+          background: 'radial-gradient(circle, rgba(34, 211, 238, 0.45) 0%, rgba(56, 189, 248, 0.1) 70%, transparent 100%)',
         }}
       />
 
-      {/* Orb 3: Floating Deep Teal Orb */}
+      {/* Orb 3: Steel Blue Orb - Bottom Left */}
       <div 
-        className="absolute w-[480px] h-[480px] rounded-full blur-[120px] -bottom-28 left-1/3 animate-aura-drift"
+        className="absolute w-[460px] h-[460px] rounded-full blur-[125px] -bottom-24 left-1/4 animate-float-delayed opacity-25 dark:opacity-20"
         style={{
-          background: 'radial-gradient(circle, rgba(47, 99, 160, 0.28) 0%, rgba(2, 16, 36, 0.2) 70%, transparent 100%)',
+          background: 'radial-gradient(circle, rgba(84, 131, 179, 0.4) 0%, rgba(5, 38, 89, 0.15) 70%, transparent 100%)',
+        }}
+      />
+
+      {/* Orb 4: Ice Blue Glow - Center */}
+      <div 
+        className="absolute w-[400px] h-[400px] rounded-full blur-[140px] top-2/3 right-1/3 animate-float opacity-20 dark:opacity-15"
+        style={{
+          background: 'radial-gradient(circle, rgba(193, 232, 255, 0.3) 0%, transparent 70%)',
         }}
       />
     </div>

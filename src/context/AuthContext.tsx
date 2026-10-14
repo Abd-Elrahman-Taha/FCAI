@@ -13,8 +13,10 @@ export type ThemeMode = 'light' | 'dark';
 
 interface AuthContextType {
   currentUser: User | null;
+  isAuthenticated: boolean;
   role: Role;
   isLoadingUser: boolean;
+  login: (targetRole?: Role) => Promise<void>;
   switchRole: (newRole: Role) => Promise<void>;
   setRole: (newRole: Role) => void;
   logout: () => void;
@@ -78,6 +80,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return saved || 'student';
   });
 
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('fcai_authenticated') === 'true';
+  });
+
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState<boolean>(true);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -87,9 +93,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return localStorage.getItem('fcai-collapsed') === '1';
   });
 
-  // Load user profile when role changes
+  // Load user profile when role changes and user is authenticated
   useEffect(() => {
     let isMounted = true;
+    if (!isAuthenticated) {
+      setCurrentUser(null);
+      setIsLoadingUser(false);
+      return;
+    }
     setIsLoadingUser(true);
     fakeApi.getCurrentUser(role).then(u => {
       if (isMounted) {
@@ -99,16 +110,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     localStorage.setItem('fcai_active_role', role);
     return () => { isMounted = false; };
-  }, [role]);
+  }, [role, isAuthenticated]);
 
   // Load notifications
   useEffect(() => {
     fakeApi.getNotifications().then(items => setNotifications(items));
   }, []);
 
+  const login = async (targetRole?: Role) => {
+    const selected = targetRole || role;
+    setRoleState(selected);
+    localStorage.setItem('fcai_active_role', selected);
+    localStorage.setItem('fcai_authenticated', 'true');
+    setIsAuthenticated(true);
+    setIsLoadingUser(true);
+    const u = await fakeApi.getCurrentUser(selected);
+    setCurrentUser(u);
+    setIsLoadingUser(false);
+    showToast('Signed In', `Welcome back, ${u.name}`);
+  };
+
   const switchRole = async (newRole: Role) => {
     setRoleState(newRole);
     localStorage.setItem('fcai_active_role', newRole);
+    localStorage.setItem('fcai_authenticated', 'true');
+    setIsAuthenticated(true);
     setIsLoadingUser(true);
     const u = await fakeApi.getCurrentUser(newRole);
     setCurrentUser(u);
@@ -121,8 +147,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    localStorage.removeItem('fcai_authenticated');
     showToast('Logged Out', 'You have been logged out of the institutional session.');
-    window.location.hash = '#/login';
+    window.location.hash = '#/home';
   };
 
   const showToast = (arg1: string, arg2?: string, arg3?: 'success' | 'error' | 'info') => {
@@ -193,8 +222,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         currentUser,
+        isAuthenticated,
         role,
         isLoadingUser,
+        login,
         switchRole,
         setRole,
         logout,
