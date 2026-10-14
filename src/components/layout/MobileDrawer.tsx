@@ -329,15 +329,6 @@ export const MobileDrawer: React.FC<{ activePath: string }> = ({ activePath }) =
                 <span style={{ flex: 1, textAlign: 'left' }}>All 106 Screens Directory</span>
                 <Icon name="chevronRight" size="sm" className="mobile-chevron" />
               </button>
-              <button
-                type="button"
-                className="mobile-nav-item"
-                onClick={() => { window.location.hash = '#/figma-export'; closeMobileMenu(); }}
-              >
-                <Icon name="figma" size="md" />
-                <span style={{ flex: 1, textAlign: 'left' }}>Figma Tokens &amp; Export</span>
-                <Icon name="chevronRight" size="sm" className="mobile-chevron" />
-              </button>
             </div>
           </div>
         </div>

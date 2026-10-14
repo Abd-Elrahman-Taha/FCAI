@@ -199,13 +199,6 @@ export const ScreensDirectory: React.FC = () => {
           { label: 'Platform Hub' },
           { label: 'Screen Directory & Sitemap' }
         ]}
-        actions={
-          <div className="row gap-2">
-            <a href="#/figma-export" className="btn btn-ice">
-              <Icon name="palette" /> Figma Tokens &amp; DOM Export
-            </a>
-          </div>
-        }
       />
 
       {/* KPI Stats */}

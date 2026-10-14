@@ -235,9 +235,6 @@ export const Topbar: React.FC = () => {
               <a href="#/screens" onClick={() => setIsUserMenuOpen(false)}>
                 <Icon name="grid" size="sm" /> All Screens Directory
               </a>
-              <a href="#/figma-export" onClick={() => setIsUserMenuOpen(false)}>
-                <Icon name="figma" size="sm" /> Figma Export &amp; Tokens
-              </a>
 
               <button
                 type="button"

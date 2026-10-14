@@ -65,8 +65,8 @@ export const StudentAcademicInfo: React.FC = () => {
           <div className="row gap-6" style={{ alignItems: 'center' }}>
             <div className="ring" style={{ '--p': Math.round((student.gpa / 4.0) * 100) } as React.CSSProperties}>
               <div>
-                <b>{student.gpa}</b>
-                <span>/ 4.00</span>
+                <b style={{ color: '#021024', fontWeight: 800 }}>{student.gpa}</b>
+                <span style={{ color: '#334155', fontWeight: 700 }}>/ 4.00</span>
               </div>
             </div>
 

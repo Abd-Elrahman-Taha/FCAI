@@ -57,7 +57,7 @@ export const StudentStudyAssistantChat: React.FC = () => {
         </div>
 
         {/* Quick RAG Action Chips */}
-        <div className="p-3 bg-white border-b row gap-2 wrap">
+        <div className="p-3 border-b row gap-2 wrap" style={{ background: 'var(--surface-2)' }}>
           <span className="sub text-xs bold">Quick Prompts:</span>
           <button
             className="chip chip-primary"
@@ -83,7 +83,7 @@ export const StudentStudyAssistantChat: React.FC = () => {
         </div>
 
         {/* Chat History Stream */}
-        <div className="p-5 stack gap-4" style={{ height: '420px', overflowY: 'auto', background: 'var(--color-bg-page)' }}>
+        <div className="p-5 stack gap-4" style={{ height: '420px', overflowY: 'auto', background: 'var(--surface-2)' }}>
           {messages.map(m => {
             const isStudent = m.sender === 'student';
             return (
@@ -98,24 +98,24 @@ export const StudentStudyAssistantChat: React.FC = () => {
                   className="card p-4"
                   style={{
                     maxWidth: '80%',
-                    background: isStudent ? 'var(--color-primary)' : '#fff',
-                    color: isStudent ? '#fff' : 'inherit',
+                    background: isStudent ? 'linear-gradient(135deg, #052659 0%, #1e40af 100%)' : 'var(--surface)',
+                    color: isStudent ? '#fff' : 'var(--text)',
                     borderRadius: 'var(--radius-md)',
-                    borderLeft: !isStudent ? '4px solid var(--color-primary)' : undefined
+                    borderLeft: !isStudent ? '4px solid var(--blue-500)' : undefined
                   }}
                 >
                   <div className="row-between mb-1 text-xs">
-                    <strong style={{ color: isStudent ? '#C1E8FF' : 'var(--color-primary)' }}>
+                    <strong style={{ color: isStudent ? '#C1E8FF' : 'var(--blue-400)' }}>
                       {isStudent ? 'You (Student)' : 'FCAI Study Assistant AI'}
                     </strong>
-                    <span style={{ color: isStudent ? 'rgba(255,255,255,0.7)' : 'var(--color-text-muted)' }}>
+                    <span style={{ color: isStudent ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)' }}>
                       {m.timestamp}
                     </span>
                   </div>
                   <p className="text-sm leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>{m.text}</p>
                   {m.citation && (
                     <div className="mt-3 pt-2 border-t">
-                      <span className="badge badge-primary text-xs">
+                      <span className="badge b-info text-xs">
                         <Icon name="checkCircle" size="sm" /> Source Citation: {m.citation}
                       </span>
                     </div>
@@ -132,7 +132,7 @@ export const StudentStudyAssistantChat: React.FC = () => {
         </div>
 
         {/* Input Composer */}
-        <form onSubmit={e => { e.preventDefault(); handleAsk(query); }} className="p-3 bg-white border-t row gap-2">
+        <form onSubmit={e => { e.preventDefault(); handleAsk(query); }} className="p-3 border-t row gap-2" style={{ background: 'var(--surface-2)' }}>
           <input
             type="text"
             className="input flex-1"

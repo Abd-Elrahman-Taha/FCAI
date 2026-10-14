@@ -57,10 +57,10 @@ export const FirstLogin: React.FC<{ onComplete?: () => void }> = ({ onComplete }
         <div className="row" style={{ position: 'relative', zIndex: 2 }}>
           <FCAILogo size={46} />
           <div>
-            <b style={{ fontSize: '16px', display: 'block', color: '#021024' }}>
+            <b style={{ fontSize: '16px', display: 'block', color: 'var(--text)' }}>
               FCAI · Beni Suef University
             </b>
-            <span style={{ fontSize: '12.5px', color: '#052659', fontWeight: 500 }}>
+            <span style={{ fontSize: '12.5px', color: 'var(--text-muted)', fontWeight: 500 }}>
               Faculty of Computers &amp; Artificial Intelligence
             </span>
           </div>

@@ -330,10 +330,6 @@ export const Sidebar: React.FC<{ activePath: string }> = ({ activePath }) => {
           <Icon name="grid" />
           {!isSidebarCollapsed && <span>All screens &amp; roles</span>}
         </a>
-        <a className="sb-help" href="#/figma-export" title="Figma UI/UX & Design System">
-          <Icon name="figma" />
-          {!isSidebarCollapsed && <span>Figma Export Hub</span>}
-        </a>
       </div>
     </aside>
   );
