@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { Icon, FCAILogo } from '../icons/Icon';
 
@@ -22,7 +23,28 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ activeNav = 'home' }
     }
   };
 
+  const [currentHash, setCurrentHash] = React.useState(() => window.location.hash);
+
+  React.useEffect(() => {
+    const onHashChange = () => setCurrentHash(window.location.hash);
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  const detectedNav: PublicNavId = React.useMemo(() => {
+    const clean = (currentHash || '').replace(/^#\/?/, '').toLowerCase().trim();
+    if (clean === 'departments') return 'departments';
+    if (clean === 'features') return 'features';
+    if (clean === 'assistant') return 'assistant';
+    if (clean === 'metrics') return 'metrics';
+    if (clean === 'faq') return 'faq';
+    if (clean === 'screens') return 'screens';
+    if (clean === 'home' || clean === '') return 'home';
+    return activeNav || 'home';
+  }, [currentHash, activeNav]);
+
   const navLinks: { id: PublicNavId; label: string; href: string; isExternal?: boolean }[] = [
+    
     { id: 'departments', label: 'Departments', href: '#/departments' },
     { id: 'features', label: 'Smart Features', href: '#/features' },
     { id: 'assistant', label: 'AI Assistant', href: '#/assistant' },
@@ -32,14 +54,14 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ activeNav = 'home' }
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full backdrop-blur-2xl bg-white/90 dark:bg-[#020b17]/92 border-b border-slate-200/80 dark:border-cyan-500/25 px-4 sm:px-6 lg:px-14 py-3.5 sm:py-4 transition-all shadow-sm dark:shadow-xl dark:shadow-cyan-950/40">
+    <header className="sticky top-0 z-50 w-full backdrop-blur-2xl bg-white/95 dark:bg-[#020b17]/95 border-b border-slate-200/80 dark:border-cyan-500/25 px-4 sm:px-6 lg:px-14 py-3.5 sm:py-4 transition-all shadow-sm dark:shadow-xl dark:shadow-cyan-950/40">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         {/* Brand Identity with Logo */}
         <a
           href="#/home"
           onClick={handleLogoClick}
           className="flex items-center gap-3 group cursor-pointer text-decoration-none select-none"
-          title={activeNav === 'home' ? 'Scroll to Top' : 'Return to Home Landing Page'}
+          title={detectedNav === 'home' ? 'Scroll to Top' : 'Return to Home Landing Page'}
         >
           <div className="relative flex-shrink-0">
             <FCAILogo size={38} />
@@ -54,30 +76,54 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ activeNav = 'home' }
                 2026/2027
               </span>
             </div>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 block -mt-0.5 hidden sm:block">
+            <span className="text-[11px] text-slate-600 dark:text-white block -mt-0.5 hidden sm:block font-medium">
               Faculty of Computers &amp; Artificial Intelligence
             </span>
           </div>
         </a>
 
         {/* Center Navigation Links (Desktop) - Text Strictly on One Line Next to Each Other (Visible on big screens >= 1024px) */}
-        <nav className="hidden lg:flex items-center gap-5 lg:gap-7 xl:gap-8 text-xs font-semibold text-slate-700 dark:text-slate-300">
+        <nav className="hidden lg:flex items-center gap-5 lg:gap-7 xl:gap-8">
           {navLinks.map(link => {
-            const isActive = activeNav === link.id;
+            const isActive = detectedNav === link.id;
             return (
               <a
                 key={link.id}
                 href={link.href}
-                className={`py-1 whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 relative group ${
+                className={`public-nav-link py-2 whitespace-nowrap shrink-0 transition-all duration-200 flex items-center gap-1.5 relative group cursor-pointer no-underline select-none ${
                   isActive
-                    ? 'text-cyan-600 dark:text-cyan-400 font-bold'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-cyan-500 dark:hover:text-cyan-300'
+                    ? 'nav-link-active text-cyan-600 dark:text-[#00e5ff] font-black text-[15px] tracking-tight scale-105'
+                    : 'text-slate-800 dark:text-white hover:text-cyan-600 dark:hover:text-cyan-300 text-[13px] font-semibold hover:scale-105'
                 }`}
+                style={
+                  !isActive
+                    ? {
+                        color: theme === 'dark' ? '#ffffff' : '#0f172a'
+                      }
+                    : undefined
+                }
               >
-                <span>{link.label}</span>
+                <span
+                  style={
+                    isActive
+                      ? {
+                          filter: 'drop-shadow(0 0 10px rgba(0, 229, 255, 0.75))'
+                        }
+                      : undefined
+                  }
+                >
+                  {link.label}
+                </span>
                 {link.isExternal && <Icon name="arrowUpRight" size="sm" />}
                 {isActive && (
-                  <span className="absolute -bottom-2.5 left-0 right-0 h-[2px] bg-[#38bdf8] rounded-full shadow-[0_0_8px_#38bdf8]" />
+                  <motion.div
+                    layoutId="activePublicNavbarIndicator"
+                    className="absolute -bottom-2.5 left-0 right-0 h-[3px] rounded-full bg-cyan-500 dark:bg-[#00e5ff]"
+                    style={{
+                      boxShadow: '0 0 12px #00e5ff, 0 0 20px rgba(0, 229, 255, 0.85)'
+                    }}
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
                 )}
               </a>
             );

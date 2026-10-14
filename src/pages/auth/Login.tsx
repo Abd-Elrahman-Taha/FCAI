@@ -25,7 +25,14 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
 
     try {
       const targetRole: Role = isStaff ? 'doctor' : 'student';
-      await login(targetRole);
+      await login({
+        email: isStaff ? email : undefined,
+        studentCode: !isStaff ? studentCode : undefined,
+        nationalId: !isStaff ? nationalId : undefined,
+        password,
+        role: targetRole,
+        rememberMe
+      });
       if (onLoginSuccess) {
         onLoginSuccess();
       } else {

@@ -124,10 +124,10 @@ export const Topbar: React.FC = () => {
         {/* Quick Home Landing Link */}
         <a
           href="#/home"
-          className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-cyan-300 bg-slate-900/60 hover:bg-slate-800/80 border border-slate-700/60 transition-all mr-1"
+          className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-800 dark:text-white hover:text-cyan-600 dark:hover:text-cyan-300 bg-slate-100 dark:bg-slate-900/60 hover:bg-slate-200 dark:hover:bg-slate-800/80 border border-slate-300 dark:border-slate-700/60 transition-all mr-1"
           title="Return to Home Landing Page"
         >
-          <Icon name="home" size="sm" className="text-cyan-400" />
+          <Icon name="home" size="sm" className="text-cyan-500 dark:text-cyan-400" />
           <span>Home</span>
         </a>
 

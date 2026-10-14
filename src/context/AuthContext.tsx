@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Role, User, NotificationItem } from '../types';
-import { fakeApi } from '../services/fakeApi';
+import type { LoginRequest } from '../types/api';
+import { api, tokenStorage } from '../services/api';
 
 export interface ToastItem {
   id: string;
@@ -16,7 +17,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   role: Role;
   isLoadingUser: boolean;
-  login: (targetRole?: Role) => Promise<void>;
+  login: (credentialsOrRole?: Role | LoginRequest) => Promise<User | null>;
   switchRole: (newRole: Role) => Promise<void>;
   setRole: (newRole: Role) => void;
   logout: () => void;
@@ -93,6 +94,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return localStorage.getItem('fcai-collapsed') === '1';
   });
 
+  // Listen for global 401 unauthorized events to gracefully expire session
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+      localStorage.removeItem('fcai_authenticated');
+      tokenStorage.remove();
+      showToast('Session Expired', 'Your institutional session has expired. Please sign in again.', 'info');
+      window.location.hash = '#/login';
+    };
+    window.addEventListener('fcai:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('fcai:unauthorized', handleUnauthorized);
+  }, []);
+
   // Load user profile when role changes and user is authenticated
   useEffect(() => {
     let isMounted = true;
@@ -102,9 +117,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     setIsLoadingUser(true);
-    fakeApi.getCurrentUser(role).then(u => {
+    api.getCurrentUser(role).then(u => {
       if (isMounted) {
         setCurrentUser(u);
+        setIsLoadingUser(false);
+      }
+    }).catch(() => {
+      if (isMounted) {
         setIsLoadingUser(false);
       }
     });
@@ -114,20 +133,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Load notifications
   useEffect(() => {
-    fakeApi.getNotifications().then(items => setNotifications(items));
+    api.getNotifications().then(items => setNotifications(items)).catch(() => {});
   }, []);
 
-  const login = async (targetRole?: Role) => {
-    const selected = targetRole || role;
-    setRoleState(selected);
-    localStorage.setItem('fcai_active_role', selected);
-    localStorage.setItem('fcai_authenticated', 'true');
-    setIsAuthenticated(true);
+  const login = async (credentialsOrRole?: Role | LoginRequest): Promise<User | null> => {
     setIsLoadingUser(true);
-    const u = await fakeApi.getCurrentUser(selected);
-    setCurrentUser(u);
-    setIsLoadingUser(false);
-    showToast('Signed In', `Welcome back, ${u.name}`);
+    try {
+      let targetRole: Role = role;
+      let user: User;
+
+      if (typeof credentialsOrRole === 'string') {
+        targetRole = credentialsOrRole;
+        user = await api.auth.login({ role: targetRole });
+      } else if (credentialsOrRole && typeof credentialsOrRole === 'object') {
+        targetRole = credentialsOrRole.role || role;
+        user = await api.auth.login(credentialsOrRole);
+      } else {
+        user = await api.auth.login({ role: targetRole });
+      }
+
+      setRoleState(user.role || targetRole);
+      localStorage.setItem('fcai_active_role', user.role || targetRole);
+      localStorage.setItem('fcai_authenticated', 'true');
+      setIsAuthenticated(true);
+      setCurrentUser(user);
+      setIsLoadingUser(false);
+      showToast('Signed In', `Welcome back, ${user.name}`);
+      return user;
+    } catch (err: any) {
+      setIsLoadingUser(false);
+      throw err;
+    }
   };
 
   const switchRole = async (newRole: Role) => {
@@ -136,7 +172,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('fcai_authenticated', 'true');
     setIsAuthenticated(true);
     setIsLoadingUser(true);
-    const u = await fakeApi.getCurrentUser(newRole);
+    const u = await api.getCurrentUser(newRole);
     setCurrentUser(u);
     setIsLoadingUser(false);
     showToast('Role Switched', `Now browsing as ${u.roleLabel} (${u.name})`, 'info');
@@ -150,6 +186,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAuthenticated(false);
     setCurrentUser(null);
     localStorage.removeItem('fcai_authenticated');
+    tokenStorage.remove();
+    api.auth.logout().catch(() => {});
     showToast('Logged Out', 'You have been logged out of the institutional session.');
     window.location.hash = '#/home';
   };
@@ -178,12 +216,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const markNotificationRead = async (id: string) => {
-    await fakeApi.markNotificationRead(id);
+    await api.markNotificationRead(id);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n));
   };
 
   const markAllNotificationsRead = async () => {
-    await fakeApi.markAllNotificationsRead();
+    await api.markAllNotificationsRead();
     setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
     setUnreadOverride(0);
     showToast('All Caught Up', 'All notifications marked as read.');

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { api } from '../../services/api';
 import { Icon, FCAILogo } from '../../components/icons/Icon';
 
 export const ForgotPassword: React.FC = () => {
@@ -8,7 +9,7 @@ export const ForgotPassword: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.endsWith('@fcai.bsu.edu.eg') && !email.includes('@')) {
       setError('Please provide a valid university institutional email.');
@@ -16,10 +17,14 @@ export const ForgotPassword: React.FC = () => {
     }
     setIsLoading(true);
     setError(null);
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await api.auth.forgotPassword(email);
       setIsSubmitted(true);
-    }, 400);
+    } catch {
+      setIsSubmitted(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
