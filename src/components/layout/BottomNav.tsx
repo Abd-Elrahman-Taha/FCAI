@@ -10,7 +10,7 @@ interface BottomNavItem {
 }
 
 export const BottomNav: React.FC<{ activePath: string }> = ({ activePath }) => {
-  const { role, toggleMobileMenu, isMobileMenuOpen, closeMobileMenu } = useAuth();
+  const { role, toggleMobileMenu, isMobileMenuOpen, closeMobileMenu, isAuthenticated, showToast } = useAuth();
 
   const configs: Record<Role, BottomNavItem[]> = {
     student: [
@@ -63,9 +63,16 @@ export const BottomNav: React.FC<{ activePath: string }> = ({ activePath }) => {
     if (appEl) appEl.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, isActive: boolean) => {
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, isActive: boolean, path: string) => {
     if (isMobileMenuOpen) {
       closeMobileMenu();
+    }
+    if (path !== 'home' && !isAuthenticated) {
+      e.preventDefault();
+      showToast('Sign In Required', 'Please sign in to access your institutional portal.', 'info');
+      sessionStorage.setItem('fcai_redirect_after_login', `#/${role}/${path}`);
+      window.location.hash = '#/login';
+      return;
     }
     if (isActive) {
       e.preventDefault();
@@ -84,7 +91,7 @@ export const BottomNav: React.FC<{ activePath: string }> = ({ activePath }) => {
           <a
             key={item.path}
             href={fullHash}
-            onClick={e => handleNavClick(e, isActive)}
+            onClick={e => handleNavClick(e, isActive, item.path)}
             className={`bottom-nav-btn ${isActive && !isMobileMenuOpen ? 'active' : ''}`}
           >
             <Icon name={item.icon} size="md" />

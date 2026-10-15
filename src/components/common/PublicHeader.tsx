@@ -176,15 +176,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ activeNav = 'home' }
           )}
 
           {/* Mobile & Tablet hamburger menu toggle — ONLY on phones and tablets, strictly hidden on big screens */}
-          <button
-            type="button"
-            className="icon-btn lg:hidden mobile-hamburger-btn text-slate-700 dark:text-slate-200"
-            onClick={toggleMobileMenu}
-            aria-label="Open mobile navigation menu"
-            title="Open menu"
-          >
-            <Icon name="menu" size="lg" />
-          </button>
+        
         </div>
       </div>
     </header>

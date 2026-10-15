@@ -323,15 +323,7 @@ export const Topbar: React.FC = () => {
         )}
 
         {/* Mobile & Tablet hamburger menu toggle — Positioned on the FAR RIGHT */}
-        <button
-          type="button"
-          className="icon-btn lg:hidden mobile-hamburger-btn ml-1"
-          onClick={toggleMobileMenu}
-          aria-label="Open navigation menu"
-          title="Open menu"
-        >
-          <Icon name="menu" size="lg" />
-        </button>
+       
       </div>
     </header>
   );

@@ -26,7 +26,8 @@ export const MobileDrawer: React.FC<{ activePath: string }> = ({ activePath }) =
     logout,
     unreadNotificationsCount,
     theme,
-    toggleTheme
+    toggleTheme,
+    showToast
   } = useAuth();
 
 
@@ -192,12 +193,26 @@ export const MobileDrawer: React.FC<{ activePath: string }> = ({ activePath }) =
   ];
 
   const handleRoleSelect = async (newRole: Role) => {
+    if (!isAuthenticated) {
+      closeMobileMenu();
+      showToast('Sign In Required', 'Please sign in to access your institutional portal.', 'info');
+      sessionStorage.setItem('fcai_redirect_after_login', `#/${newRole}/dashboard`);
+      window.location.hash = '#/login';
+      return;
+    }
     await switchRole(newRole);
     window.location.hash = `#/${newRole}/dashboard`;
     closeMobileMenu();
   };
 
   const handleItemClick = (path: string) => {
+    if (!isAuthenticated) {
+      closeMobileMenu();
+      showToast('Sign In Required', 'Please sign in to access your institutional portal.', 'info');
+      sessionStorage.setItem('fcai_redirect_after_login', `#/${role}/${path}`);
+      window.location.hash = '#/login';
+      return;
+    }
     window.location.hash = `#/${role}/${path}`;
     closeMobileMenu();
   };

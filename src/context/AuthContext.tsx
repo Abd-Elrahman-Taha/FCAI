@@ -169,13 +169,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const switchRole = async (newRole: Role) => {
     setRoleState(newRole);
     localStorage.setItem('fcai_active_role', newRole);
-    localStorage.setItem('fcai_authenticated', 'true');
-    setIsAuthenticated(true);
-    setIsLoadingUser(true);
-    const u = await api.getCurrentUser(newRole);
-    setCurrentUser(u);
-    setIsLoadingUser(false);
-    showToast('Role Switched', `Now browsing as ${u.roleLabel} (${u.name})`, 'info');
+    if (isAuthenticated) {
+      setIsLoadingUser(true);
+      const u = await api.getCurrentUser(newRole);
+      setCurrentUser(u);
+      setIsLoadingUser(false);
+      showToast('Role Switched', `Now browsing as ${u.roleLabel} (${u.name})`, 'info');
+    }
   };
 
   const setRole = (newRole: Role) => {

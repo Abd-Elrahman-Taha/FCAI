@@ -105,7 +105,13 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
       if (onLoginSuccess) {
         onLoginSuccess();
       } else {
-        window.location.hash = `#/${targetRole}/dashboard`;
+        const redirect = sessionStorage.getItem('fcai_redirect_after_login');
+        if (redirect) {
+          sessionStorage.removeItem('fcai_redirect_after_login');
+          window.location.hash = redirect;
+        } else {
+          window.location.hash = `#/${targetRole}/dashboard`;
+        }
       }
     } catch (err: any) {
       setError(err?.message || 'Authentication failed. Please verify credentials.');
@@ -131,7 +137,13 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
       if (onLoginSuccess) {
         onLoginSuccess();
       } else {
-        window.location.hash = `#/${targetRole}/dashboard`;
+        const redirect = sessionStorage.getItem('fcai_redirect_after_login');
+        if (redirect) {
+          sessionStorage.removeItem('fcai_redirect_after_login');
+          window.location.hash = redirect;
+        } else {
+          window.location.hash = `#/${targetRole}/dashboard`;
+        }
       }
     } catch (err: any) {
       setError(err?.message || 'Authentication failed. Please verify credentials.');

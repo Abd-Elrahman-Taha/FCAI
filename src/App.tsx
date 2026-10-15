@@ -136,27 +136,92 @@ import { AIAssistantLandingPage } from './pages/public/AIAssistantLandingPage';
 import { PlatformMetricsPage } from './pages/public/PlatformMetricsPage';
 import { FaqPage } from './pages/public/FaqPage';
 
+const isPublicRoute = (path: string): boolean => {
+  const clean = path.replace(/^#\/?/, '').toLowerCase().trim();
+  // 1. Landing and Homepage
+  if (!clean || clean === 'home' || clean === 'landing' || clean === 'welcome') {
+    return true;
+  }
+  // 2. Showcase / Public Information Pages
+  if (
+    clean === 'departments' ||
+    clean === 'features' || clean === 'smart-features' ||
+    clean === 'assistant' || clean === 'ai-assistant' ||
+    clean === 'metrics' || clean === 'numbers' || clean === 'platform-numbers' ||
+    clean === 'faq' || clean === 'help'
+  ) {
+    return true;
+  }
+  // 3. Auth and Onboarding pages
+  if (
+    clean === 'login' || clean === 'screen/1' ||
+    clean === 'first-login' || clean === 'screen/2' ||
+    clean === 'forgot-password' || clean === 'screen/3' ||
+    clean === 'reset-password' || clean === 'screen/4' ||
+    clean === 'signup' || clean === 'register' || clean === 'enrollment'
+  ) {
+    return true;
+  }
+  return false;
+};
+
 const RouterView: React.FC = () => {
-  const { role, switchRole } = useAuth();
+  const { role, switchRole, isAuthenticated, showToast } = useAuth();
   const [currentHash, setCurrentHash] = useState<string>(() => window.location.hash || '');
+
+  const cleanPath = currentHash.replace(/^#\/?/, '').toLowerCase().trim();
+  const isPublic = isPublicRoute(cleanPath);
 
   useEffect(() => {
     const handleHashChange = () => {
       const h = window.location.hash || '';
       setCurrentHash(h);
 
-      const clean = h.replace(/^#\/?/, '');
+      const clean = h.replace(/^#\/?/, '').toLowerCase().trim();
       const first = clean.split('/')[0];
-      if (['student', 'doctor', 'ta', 'admin', 'employee'].includes(first) && first !== role) {
+
+      // Route Protection: If not authenticated and trying to access a protected portal page
+      if (!isAuthenticated && !isPublicRoute(clean)) {
+        sessionStorage.setItem('fcai_redirect_after_login', h);
+        showToast('Sign In Required', 'Please sign in to access your institutional portal.', 'info');
+        window.location.hash = '#/login';
+        return;
+      }
+
+      if (isAuthenticated && ['student', 'doctor', 'ta', 'admin', 'employee'].includes(first) && first !== role) {
         switchRole(first as any);
       }
     };
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [role, switchRole]);
+  }, [role, switchRole, isAuthenticated, showToast]);
 
-  const cleanPath = currentHash.replace(/^#\/?/, '').toLowerCase();
+  // Initial check on mount: If user opens app on a protected portal route without being signed in
+  useEffect(() => {
+    if (!isAuthenticated && !isPublic) {
+      sessionStorage.setItem('fcai_redirect_after_login', window.location.hash || '');
+      showToast('Sign In Required', 'Please sign in to access your institutional portal.', 'info');
+      window.location.hash = '#/login';
+    }
+  }, [isAuthenticated, isPublic, showToast]);
+
+  // If not authenticated and on a protected route, render Login with auto-redirect
+  if (!isAuthenticated && !isPublic) {
+    return (
+      <Login
+        onLoginSuccess={() => {
+          const redirect = sessionStorage.getItem('fcai_redirect_after_login');
+          if (redirect) {
+            sessionStorage.removeItem('fcai_redirect_after_login');
+            window.location.hash = redirect;
+          } else {
+            window.location.hash = `#/${role}/dashboard`;
+          }
+        }}
+      />
+    );
+  }
 
   // Standalone Modern Futuristic Public Landing & Feature Showcase Pages
   if (cleanPath === '' || cleanPath === 'home' || cleanPath === 'landing' || cleanPath === 'welcome') {
@@ -180,7 +245,19 @@ const RouterView: React.FC = () => {
 
   // Standalone Authentication & Fullscreen screens
   if (cleanPath === 'login' || cleanPath === 'screen/1') {
-    return <Login onLoginSuccess={() => { window.location.hash = `#/${role}/dashboard`; }} />;
+    return (
+      <Login
+        onLoginSuccess={() => {
+          const redirect = sessionStorage.getItem('fcai_redirect_after_login');
+          if (redirect) {
+            sessionStorage.removeItem('fcai_redirect_after_login');
+            window.location.hash = redirect;
+          } else {
+            window.location.hash = `#/${role}/dashboard`;
+          }
+        }}
+      />
+    );
   }
   if (cleanPath === 'first-login' || cleanPath === 'screen/2') {
     return <FirstLogin onComplete={() => { window.location.hash = `#/${role}/dashboard`; }} />;
