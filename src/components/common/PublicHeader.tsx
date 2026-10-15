@@ -50,7 +50,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ activeNav = 'home' }
     { id: 'assistant', label: 'AI Assistant', href: '#/assistant' },
     { id: 'metrics', label: 'Platform Numbers', href: '#/metrics' },
     { id: 'faq', label: 'FAQ', href: '#/faq' },
-    { id: 'screens', label: 'All 106 Screens', href: '#/screens', isExternal: true },
+    
   ];
 
   return (

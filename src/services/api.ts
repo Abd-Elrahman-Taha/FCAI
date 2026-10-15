@@ -145,7 +145,23 @@ export const api: ApiType = new Proxy(mockDataApi, {
         return (apiExtensions as any)[prop];
       }
       if (isRealApiActive() && prop in realServiceHandlers) {
-        return realServiceHandlers[prop];
+        return async (...args: any[]) => {
+          try {
+            return await realServiceHandlers[prop](...args);
+          } catch (err: any) {
+            if (
+              err?.isNetworkError ||
+              err?.message?.includes('Failed to fetch') ||
+              err?.message?.includes('Network request failed')
+            ) {
+              console.warn(`[FCAI API] Backend server unreachable for ${prop}. Falling back to mock data.`);
+              if (typeof target[prop] === 'function') {
+                return await target[prop](...args);
+              }
+            }
+            throw err;
+          }
+        };
       }
     }
     return target[prop];

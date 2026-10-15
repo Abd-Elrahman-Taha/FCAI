@@ -3082,7 +3082,6 @@ svg.icon ellipse {
 }
 
 /* =========================================================================
-/* =========================================================================
    UNIVERSAL NAVBAR TEXT & ACTIVE EFFECT SPECIFICATION
    1. All inactive navbar text in dark mode is crisp pure white (#ffffff).
    2. Active links across all modes get visibly bigger, ONE smooth single line,
@@ -3134,4 +3133,291 @@ svg.icon ellipse {
   color: #00e5ff !important;
   text-decoration: none !important;
   filter: drop-shadow(0 0 10px rgba(0, 229, 255, 0.85)) !important;
+}
+
+
+/* =========================================================================
+   PORTAL DESIGN LAYER
+   Shared visual polish for every portal (Student, Doctor, TA, Admin, Staff).
+   Palette: navy / sky blue / electric cyan — no green, no gradient buttons.
+   ========================================================================= */
+
+/* ---------- 1. Portal hero header (PageHead) ---------- */
+.portal-hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  margin-bottom: 24px;
+  padding: 18px 22px 20px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  box-shadow: 0 10px 30px -18px rgba(5, 38, 89, 0.35);
+}
+.portal-hero::before {
+  /* left accent rail */
+  content: '';
+  position: absolute;
+  left: 0; top: 18px; bottom: 18px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: #0ea5e9;
+  box-shadow: 0 0 14px rgba(14, 165, 233, 0.6);
+}
+.portal-hero-glow {
+  position: absolute;
+  z-index: -1;
+  right: -80px; top: -120px;
+  width: 320px; height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.22) 0%, transparent 70%);
+  pointer-events: none;
+}
+.portal-hero-grid {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 35%, #000 100%);
+          mask-image: linear-gradient(90deg, transparent 35%, #000 100%);
+  pointer-events: none;
+}
+.portal-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.portal-hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0369a1;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+}
+.portal-hero-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.portal-hero-pulse {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #0ea5e9;
+  box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.6);
+  animation: portalPulse 2.2s infinite;
+}
+@keyframes portalPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.55); }
+  70%  { box-shadow: 0 0 0 9px rgba(14, 165, 233, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
+}
+.portal-hero-crumbs { margin-bottom: 6px; }
+.portal-hero-crumbs .sep { color: var(--gray-400); opacity: 0.7; }
+.portal-hero-body { margin-bottom: 0 !important; align-items: flex-end; }
+.portal-hero-title {
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.025em;
+  color: #052659;
+}
+.portal-hero-body p { font-size: 14px; }
+
+[data-theme="dark"] .portal-hero,
+.dark .portal-hero {
+  background: rgba(7, 22, 44, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-color: rgba(56, 189, 248, 0.28);
+  box-shadow: 0 0 26px rgba(0, 229, 255, 0.12), 0 14px 36px -16px rgba(0, 0, 0, 0.7);
+}
+[data-theme="dark"] .portal-hero::before,
+.dark .portal-hero::before {
+  background: #00e5ff;
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.85);
+}
+[data-theme="dark"] .portal-hero-chip,
+.dark .portal-hero-chip {
+  color: #7dd3fc;
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+[data-theme="dark"] .portal-hero-title,
+.dark .portal-hero-title { color: #ffffff; }
+[data-theme="dark"] .portal-hero-date,
+.dark .portal-hero-date { color: #a5c8ee; }
+[data-theme="dark"] .portal-hero-pulse,
+.dark .portal-hero-pulse { background: #00e5ff; }
+
+@media (max-width: 640px) {
+  .portal-hero { padding: 14px 16px 16px; border-radius: 16px; }
+  .portal-hero-title { font-size: 21px !important; }
+  .portal-hero-grid { display: none; }
+}
+
+/* ---------- 2. Cards: lift + top accent line on hover ---------- */
+.card {
+  position: relative;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.card::after {
+  content: '';
+  position: absolute;
+  left: 18px; right: 18px; top: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: #0ea5e9;
+  opacity: 0;
+  transform: scaleX(0.4);
+  transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+.card:hover { transform: translateY(-2px); }
+.card:hover::after { opacity: 1; transform: scaleX(1); }
+[data-theme="dark"] .card::after,
+.dark .card::after {
+  background: #00e5ff;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.8);
+}
+
+/* ---------- 3. KPI cards: glowing icon tile ---------- */
+.kpi-ico { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease; }
+.kpi:hover .kpi-ico { transform: scale(1.08) rotate(-4deg); }
+[data-theme="dark"] .kpi-ico,
+.dark .kpi-ico {
+  background: rgba(56, 189, 248, 0.14) !important;
+  color: #7dd3fc !important;
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.3);
+}
+[data-theme="dark"] .kpi:hover .kpi-ico,
+.dark .kpi:hover .kpi-ico {
+  box-shadow: inset 0 0 0 1px rgba(0, 229, 255, 0.6), 0 0 16px rgba(0, 229, 255, 0.45);
+}
+.kpi-value { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+/* ---------- 4. Tables: sticky refined header + row accent ---------- */
+.table th {
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.table tbody tr { position: relative; }
+.table tbody tr td:first-child { box-shadow: inset 3px 0 0 transparent; transition: box-shadow 0.2s ease; }
+.table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 #0ea5e9; }
+[data-theme="dark"] .table th,
+.dark .table th {
+  background: rgba(10, 30, 58, 0.9) !important;
+  color: #7dd3fc !important;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.22) !important;
+}
+[data-theme="dark"] .table td,
+.dark .table td { border-bottom-color: rgba(56, 189, 248, 0.08) !important; }
+[data-theme="dark"] .table tbody tr:hover,
+.dark .table tbody tr:hover { background: rgba(56, 189, 248, 0.07) !important; }
+[data-theme="dark"] .table tbody tr:hover td:first-child,
+.dark .table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 #00e5ff; }
+
+/* ---------- 5. Tabs: neon active state ---------- */
+.tab { transition: color 0.2s ease, border-color 0.2s ease; }
+.tab.active { color: #0369a1 !important; border-bottom-color: #0ea5e9 !important; }
+[data-theme="dark"] .tab,
+.dark .tab { color: #a5c8ee; }
+[data-theme="dark"] .tab:hover,
+.dark .tab:hover { color: #ffffff; }
+[data-theme="dark"] .tab.active,
+.dark .tab.active {
+  color: #00e5ff !important;
+  border-bottom-color: #00e5ff !important;
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+}
+[data-theme="dark"] .tab-btn.active,
+.dark .tab-btn.active {
+  background: rgba(56, 189, 248, 0.14) !important;
+  color: #00e5ff !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 229, 255, 0.45) !important;
+}
+
+/* ---------- 6. Section titles with accent bar ---------- */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title::before {
+  content: '';
+  width: 14px; height: 3px;
+  border-radius: 3px;
+  background: #0ea5e9;
+  flex-shrink: 0;
+}
+[data-theme="dark"] .section-title,
+.dark .section-title { color: #a5c8ee; }
+[data-theme="dark"] .section-title::before,
+.dark .section-title::before { background: #00e5ff; box-shadow: 0 0 8px rgba(0, 229, 255, 0.8); }
+
+/* ---------- 7. Sidebar: sliding hover + icon glow ---------- */
+.sb-link { transition: background 0.2s ease, color 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important; }
+.sb-link:not(.active):hover { transform: translateX(3px); }
+.sb-link:not(.active):hover .icon { color: #7dd3fc; }
+
+/* ---------- 8. Badges & progress: crisper in dark ---------- */
+[data-theme="dark"] .progress,
+.dark .progress { background: rgba(56, 189, 248, 0.12) !important; }
+[data-theme="dark"] .progress > span,
+.dark .progress > span {
+  background: #38bdf8 !important;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+}
+
+/* ---------- 9. Global finishing touches ---------- */
+::selection { background: rgba(14, 165, 233, 0.28); color: inherit; }
+[data-theme="dark"] ::selection,
+.dark ::selection { background: rgba(0, 229, 255, 0.3); color: #ffffff; }
+
+:focus-visible {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+[data-theme="dark"] :focus-visible,
+.dark :focus-visible { outline-color: #00e5ff; }
+
+.content::-webkit-scrollbar,
+.main::-webkit-scrollbar,
+.table-wrap::-webkit-scrollbar { width: 10px; height: 10px; }
+.content::-webkit-scrollbar-thumb,
+.main::-webkit-scrollbar-thumb,
+.table-wrap::-webkit-scrollbar-thumb {
+  background: rgba(84, 131, 179, 0.35);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+[data-theme="dark"] .content::-webkit-scrollbar-thumb,
+[data-theme="dark"] .main::-webkit-scrollbar-thumb,
+[data-theme="dark"] .table-wrap::-webkit-scrollbar-thumb,
+.dark .content::-webkit-scrollbar-thumb,
+.dark .main::-webkit-scrollbar-thumb,
+.dark .table-wrap::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.3); background-clip: padding-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-hero-pulse { animation: none; }
+  .card, .card::after, .kpi-ico, .sb-link { transition: none !important; }
+  .card:hover, .sb-link:not(.active):hover { transform: none; }
 }

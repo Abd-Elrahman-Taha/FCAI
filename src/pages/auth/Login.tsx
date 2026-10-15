@@ -5,9 +5,72 @@ import { Icon, FCAILogo } from '../../components/icons/Icon';
 import { EducationHeroIllustration } from '../../components/auth/EducationHeroIllustration';
 import type { Role } from '../../types';
 
+interface EnrollmentQuickAccount {
+  role: Role;
+  roleLabel: string;
+  name: string;
+  meta: string;
+  icon: string;
+  code?: string;
+  nationalId?: string;
+  email?: string;
+  badge: string;
+}
+
+const ENROLLMENTS: EnrollmentQuickAccount[] = [
+  {
+    role: 'student',
+    roleLabel: 'Student Enrollment',
+    name: 'Ahmed Mohamed Hassan',
+    meta: 'Level 3 · CS (Code: 2021170045)',
+    icon: 'graduation',
+    code: '2021170045',
+    nationalId: '30302152201234',
+    badge: 'Undergraduate'
+  },
+  {
+    role: 'doctor',
+    roleLabel: 'Faculty Doctor Enrollment',
+    name: 'Dr. Mona Abdelrahman',
+    meta: 'Assoc. Professor · Computer Science',
+    icon: 'briefcase',
+    email: 'mona.abdelrahman@fcai.bsu.edu.eg',
+    badge: 'Faculty Member'
+  },
+  {
+    role: 'ta',
+    roleLabel: 'Teaching Assistant Enrollment',
+    name: 'Eng. Youssef Khaled',
+    meta: 'Teaching Assistant · CS Dept',
+    icon: 'users',
+    email: 'youssef.khaled@fcai.bsu.edu.eg',
+    badge: 'Assisting Staff'
+  },
+  {
+    role: 'admin',
+    roleLabel: 'College Admin Enrollment',
+    name: 'Tarek Fathy',
+    meta: 'Dean Executive Administration',
+    icon: 'shieldCheck',
+    email: 'tarek.fathy@fcai.bsu.edu.eg',
+    badge: 'Executive Admin'
+  },
+  {
+    role: 'employee',
+    roleLabel: 'Staff Employee Enrollment',
+    name: 'Salma Ibrahim',
+    meta: 'Senior Officer · Student Affairs',
+    icon: 'idCard',
+    email: 'salma.ibrahim@fcai.bsu.edu.eg',
+    badge: 'Student Affairs'
+  }
+];
+
 export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSuccess }) => {
   const { login, theme, toggleTheme } = useAuth();
   const [isStaff, setIsStaff] = useState(false);
+  const [selectedStaffRole, setSelectedStaffRole] = useState<Role>('doctor');
+  const [signingInRole, setSigningInRole] = useState<Role | null>(null);
 
   const [nationalId, setNationalId] = useState('30302152201234');
   const [studentCode, setStudentCode] = useState('2021170045');
@@ -18,13 +81,45 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const handleQuickSignIn = async (targetRole: Role) => {
+    setSigningInRole(targetRole);
+    setError(null);
+
+    // Synchronize form fields
+    if (targetRole === 'student') {
+      setIsStaff(false);
+      setNationalId('30302152201234');
+      setStudentCode('2021170045');
+    } else {
+      setIsStaff(true);
+      setSelectedStaffRole(targetRole);
+      if (targetRole === 'doctor') setEmail('mona.abdelrahman@fcai.bsu.edu.eg');
+      else if (targetRole === 'ta') setEmail('youssef.khaled@fcai.bsu.edu.eg');
+      else if (targetRole === 'admin') setEmail('tarek.fathy@fcai.bsu.edu.eg');
+      else if (targetRole === 'employee') setEmail('salma.ibrahim@fcai.bsu.edu.eg');
+    }
+    setPassword('••••••••••••');
+
+    try {
+      await login({ role: targetRole });
+      if (onLoginSuccess) {
+        onLoginSuccess();
+      } else {
+        window.location.hash = `#/${targetRole}/dashboard`;
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Authentication failed. Please verify credentials.');
+      setSigningInRole(null);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      const targetRole: Role = isStaff ? 'doctor' : 'student';
+      const targetRole: Role = isStaff ? selectedStaffRole : 'student';
       await login({
         email: isStaff ? email : undefined,
         studentCode: !isStaff ? studentCode : undefined,
@@ -109,21 +204,97 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
           </button>
         </div>
 
-        <div className="auth-card w-full max-w-md bg-white dark:bg-[#071933]/90 rounded-3xl p-7 sm:p-9 shadow-xl dark:shadow-2xl border border-slate-200/90 dark:border-sky-500/25 backdrop-blur-xl transition-all">
-          <div className="mb-6">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-sky-100 text-sky-900 border border-sky-300 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30 mb-3">
+        <div className="auth-card w-full max-w-xl bg-white dark:bg-[#071933]/90 rounded-3xl p-6 sm:p-8 shadow-xl dark:shadow-2xl border border-slate-200/90 dark:border-sky-500/25 backdrop-blur-xl transition-all">
+          <div className="mb-5">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-sky-100 text-sky-900 border border-sky-300 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30 mb-2.5">
               <Icon name="lock" size="sm" /> Institutional Single Sign-On
             </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">
               Welcome back
             </h1>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-2">
-              Sign in to the FCAI BSU Platform with credentials provided by the College Administration.
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1.5">
+              Sign in to the FCAI BSU Platform or use 1-click quick sign-in below.
             </p>
           </div>
 
+          {/* Quick Sign-In for Every Enrollment */}
+          <div className="mb-5 p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-[#031329] border border-slate-200 dark:border-sky-500/25">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-sky-300 flex items-center gap-1.5">
+                <Icon name="zap" size="sm" className="text-sky-600 dark:text-sky-400" />
+                Quick Sign-In by Enrollment
+              </span>
+              <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">
+                1-Click Direct Access
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-3 leading-relaxed">
+              Click any enrollment role below to sign in instantly with its pre-configured demo account:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {ENROLLMENTS.map((item, idx) => {
+                const isCurrentSigning = signingInRole === item.role;
+                const isFullWidth = idx === ENROLLMENTS.length - 1;
+                return (
+                  <button
+                    key={item.role}
+                    type="button"
+                    disabled={isLoading || signingInRole !== null}
+                    onClick={() => handleQuickSignIn(item.role)}
+                    aria-label={`Sign in as ${item.roleLabel}`}
+                    className={`group text-left p-2.5 sm:p-3 rounded-xl border transition-all cursor-pointer relative flex items-center gap-2.5 ${
+                      isFullWidth ? 'sm:col-span-2' : ''
+                    } ${
+                      isCurrentSigning
+                        ? 'bg-[#052659] text-white border-[#052659] dark:bg-[#38bdf8] dark:text-[#020b17] dark:border-[#38bdf8] shadow-md'
+                        : 'bg-white hover:bg-slate-100 dark:bg-[#071d3d] dark:hover:bg-[#0b2b57] text-slate-800 dark:text-slate-100 border-slate-200 dark:border-sky-500/25 hover:border-sky-500 dark:hover:border-sky-400 shadow-xs'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                      isCurrentSigning
+                        ? 'bg-white/20 text-white dark:bg-[#020b17]/20 dark:text-[#020b17]'
+                        : 'bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 group-hover:bg-[#052659] group-hover:text-white dark:group-hover:bg-[#38bdf8] dark:group-hover:text-[#020b17]'
+                    }`}>
+                      {isCurrentSigning ? (
+                        <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Icon name={item.icon} size="sm" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold truncate">
+                          {item.roleLabel}
+                        </span>
+                        <span className={`text-[10px] font-bold tracking-wider shrink-0 ml-1 transition-opacity ${
+                          isCurrentSigning
+                            ? 'opacity-100'
+                            : 'text-sky-700 dark:text-sky-300 opacity-80 group-hover:opacity-100'
+                        }`}>
+                          {isCurrentSigning ? 'Signing in…' : 'Sign In →'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                        {item.name}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="relative flex py-1 items-center mb-4">
+            <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+            <span className="flex-shrink mx-3 text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Or sign in manually
+            </span>
+            <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+          </div>
+
           {/* Account type switch */}
-          <div className="p-1 rounded-xl bg-slate-100 dark:bg-slate-900/90 border border-slate-300 dark:border-sky-500/30 grid grid-cols-2 gap-1 mb-6" role="tablist" aria-label="Account type">
+          <div className="p-1 rounded-xl bg-slate-100 dark:bg-slate-900/90 border border-slate-300 dark:border-sky-500/30 grid grid-cols-2 gap-1 mb-5" role="tablist" aria-label="Account type">
             <button
               type="button"
               className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
@@ -205,6 +376,36 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
               </>
             ) : (
               <div>
+                <div className="mb-3">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Select Staff Enrollment Role:
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { role: 'doctor' as Role, label: 'Doctor', email: 'mona.abdelrahman@fcai.bsu.edu.eg' },
+                      { role: 'ta' as Role, label: 'TA', email: 'youssef.khaled@fcai.bsu.edu.eg' },
+                      { role: 'admin' as Role, label: 'Admin', email: 'tarek.fathy@fcai.bsu.edu.eg' },
+                      { role: 'employee' as Role, label: 'Affairs Staff', email: 'salma.ibrahim@fcai.bsu.edu.eg' }
+                    ].map(s => (
+                      <button
+                        key={s.role}
+                        type="button"
+                        onClick={() => {
+                          setSelectedStaffRole(s.role);
+                          setEmail(s.email);
+                        }}
+                        className={`py-1.5 px-2.5 rounded-lg text-xs transition-all cursor-pointer border ${
+                          selectedStaffRole === s.role
+                            ? 'bg-[#052659] text-white border-[#052659] dark:bg-[#38bdf8] dark:text-[#020b17] dark:border-[#38bdf8] font-bold shadow-xs'
+                            : 'bg-white hover:bg-slate-50 dark:bg-slate-900/80 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 font-medium'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                   Institutional Email
                 </label>

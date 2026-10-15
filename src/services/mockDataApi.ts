@@ -690,9 +690,17 @@ export const mockDataApi = {
     return { ...DB_USERS[role] };
   },
 
-  async login(creds: { role: Role; id?: string; password?: string; email?: string }): Promise<User> {
-    await delay(280);
-    const user = DB_USERS[creds.role];
+  async login(creds: { role?: Role; id?: string; password?: string; email?: string }): Promise<User> {
+    await delay(180);
+    let targetRole: Role = creds.role || 'student';
+    if (!creds.role && creds.email) {
+      const em = creds.email.toLowerCase();
+      if (em.includes('mona') || em.includes('doctor')) targetRole = 'doctor';
+      else if (em.includes('youssef') || em.includes('ta')) targetRole = 'ta';
+      else if (em.includes('tarek') || em.includes('admin')) targetRole = 'admin';
+      else if (em.includes('salma') || em.includes('emp')) targetRole = 'employee';
+    }
+    const user = DB_USERS[targetRole] || DB_USERS.student;
     if (creds.password === 'error_trigger') {
       throw new Error('Invalid credentials');
     }
