@@ -3,6 +3,8 @@ import { fakeApi } from '../../services/fakeApi';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';
+import { NeonRadialGauge } from '../../components/common/NeonRadialGauge';
+import { AnimatedCounter } from '../../components/common/AnimatedCounter';
 
 export const StudentGpa: React.FC = () => {
   const [data, setData] = useState<any>(null);
@@ -31,24 +33,30 @@ export const StudentGpa: React.FC = () => {
 
       {/* Top Cumulative Metrics */}
       <div className="grid g-3 mb-6">
-        <div className="card p-5 text-center">
-          <div className="sub text-xs">Cumulative GPA (CGPA)</div>
-          <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--color-primary)' }}>
-            {data.cumulativeGpa.toFixed(2)}
-          </div>
-          <span className="badge badge-success mt-1">Good Academic Standing</span>
+        <div className="card p-5 text-center flex flex-col items-center justify-center">
+          <div className="sub text-xs mb-2">Cumulative GPA (CGPA)</div>
+          <NeonRadialGauge
+            value={data.cumulativeGpa}
+            max={4.0}
+            size={90}
+            strokeWidth={7}
+            decimals={2}
+            label="GPA"
+            glowColor="cyan"
+          />
+          <span className="badge badge-primary mt-3">Good Academic Standing</span>
         </div>
-        <div className="card p-5 text-center">
+        <div className="card p-5 text-center flex flex-col justify-center">
           <div className="sub text-xs">Completed Credit Hours</div>
           <div style={{ fontSize: '32px', fontWeight: 800 }}>
-            {data.totalCredits} <small style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>/ 132 Cr.</small>
+            <AnimatedCounter value={data.totalCredits} /> <small style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>/ 132 Cr.</small>
           </div>
           <span className="sub text-xs mt-1 block">56% Degree Completion</span>
         </div>
-        <div className="card p-5 text-center">
+        <div className="card p-5 text-center flex flex-col justify-center">
           <div className="sub text-xs">Total Quality Points</div>
-          <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--color-success)' }}>
-            {data.totalPoints.toFixed(1)}
+          <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--color-primary)' }}>
+            <AnimatedCounter value={data.totalPoints} decimals={1} />
           </div>
           <span className="sub text-xs mt-1 block">Weighted Quality Points</span>
         </div>

@@ -3,6 +3,8 @@ import { fakeApi } from '../../services/fakeApi';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
 import type { AttendanceSession } from '../../types';
+import { NeonRadialGauge } from '../../components/common/NeonRadialGauge';
+import { AnimatedCounter } from '../../components/common/AnimatedCounter';
 
 export const StudentAttendance: React.FC = () => {
   const [data, setData] = useState<any>(null);
@@ -48,15 +50,35 @@ export const StudentAttendance: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards Row */}
+      {/* KPI Cards Row with Neon Radial Gauge */}
       <div className="grid g-5 mb-6">
-        <div className="card kpi">
-          <div className="kpi-top">
-            <span className="kpi-label">Overall Attendance</span>
-            <span className="kpi-ico success"><Icon name="userCheck" /></span>
+        <div className="card kpi p-4 relative overflow-hidden">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="kpi-top mb-1">
+                <span className="kpi-label">Overall Attendance</span>
+                <span className="kpi-ico info"><Icon name="userCheck" /></span>
+              </div>
+              <div className="kpi-value text-2xl font-bold">
+                <AnimatedCounter value={Number(overallPercentage) || 92} suffix="%" />
+              </div>
+              <div className="kpi-meta mt-1">
+                <span className={Number(overallPercentage) >= 75 ? "text-cyan-600 dark:text-cyan-400 font-medium" : "text-amber-500 font-bold"}>
+                  {Number(overallPercentage) >= 75 ? 'Above 75% Safe Minimum' : '⚠️ Below 75% Risk'}
+                </span>
+              </div>
+            </div>
+            <NeonRadialGauge
+              value={Number(overallPercentage) || 92}
+              max={100}
+              size={68}
+              strokeWidth={5}
+              warningThreshold={75}
+              decimals={0}
+              sublabel="%"
+              label="RATE"
+            />
           </div>
-          <div className="kpi-value">{overallPercentage}%</div>
-          <div className="kpi-meta"><span className="trend-up">Above 75% minimum</span></div>
         </div>
 
         <div className="card kpi">
@@ -64,7 +86,7 @@ export const StudentAttendance: React.FC = () => {
             <span className="kpi-label">Sessions Attended</span>
             <span className="kpi-ico info"><Icon name="checkCircle" /></span>
           </div>
-          <div className="kpi-value">{attendedSessions}</div>
+          <div className="kpi-value"><AnimatedCounter value={Number(attendedSessions) || 44} /></div>
           <div className="kpi-meta">Lectures &amp; Lab Sections</div>
         </div>
 
@@ -73,7 +95,7 @@ export const StudentAttendance: React.FC = () => {
             <span className="kpi-label">Unexcused Absences</span>
             <span className="kpi-ico danger"><Icon name="xCircle" /></span>
           </div>
-          <div className="kpi-value">{absentSessions}</div>
+          <div className="kpi-value"><AnimatedCounter value={Number(absentSessions) || 2} /></div>
           <div className="kpi-meta"><span className="trend-down">Quota limit: 5</span></div>
         </div>
 

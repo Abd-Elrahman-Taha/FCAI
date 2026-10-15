@@ -11,6 +11,22 @@ export const AmbientMotionAura: React.FC = () => {
       className="fixed inset-0 pointer-events-none overflow-hidden z-0" 
       aria-hidden="true"
     >
+      {/* 1. Subtle Slow-Drifting Cyber-Grid Backdrop Mesh (MIT/NASA Tech Aesthetic) */}
+      <div className="cyber-grid-overlay" />
+
+      {/* 2. Constellation Connection Dots & Crosshairs */}
+      <div className="cyber-nodes-mesh">
+        <span className="cyber-dot" style={{ top: '15%', left: '12%', animationDelay: '0s' }} />
+        <span className="cyber-dot" style={{ top: '28%', left: '84%', animationDelay: '2s' }} />
+        <span className="cyber-dot" style={{ top: '65%', left: '18%', animationDelay: '1.2s' }} />
+        <span className="cyber-dot" style={{ top: '78%', left: '76%', animationDelay: '3.1s' }} />
+        <span className="cyber-dot" style={{ top: '42%', left: '52%', animationDelay: '0.8s' }} />
+        <span className="cyber-dot" style={{ top: '88%', left: '35%', animationDelay: '2.5s' }} />
+        <span className="cyber-crosshair" style={{ top: '20%', left: '70%', animationDelay: '1.5s' }} />
+        <span className="cyber-crosshair" style={{ top: '55%', left: '10%', animationDelay: '3.5s' }} />
+        <span className="cyber-crosshair" style={{ top: '80%', left: '85%', animationDelay: '0.5s' }} />
+      </div>
+
       {/* Orb 1: Electric Blue Orb - Top Left */}
       <div 
         className="absolute w-[580px] h-[580px] rounded-full blur-[130px] -top-32 -left-24 animate-orb-float opacity-30 dark:opacity-25"

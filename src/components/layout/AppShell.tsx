@@ -9,6 +9,7 @@ import { ToastContainer } from '../common/ToastContainer';
 import { AmbientMotionAura } from '../common/AmbientMotionAura';
 import { CampusLiveTicker } from '../common/CampusLiveTicker';
 import { ScrollToTop } from '../common/ScrollToTop';
+import { AICopilotWidget } from '../common/AICopilotWidget';
 
 interface AppShellProps {
   currentPath: string;
@@ -55,6 +56,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, isFullShell = t
       </div>
       <BottomNav activePath={currentPath} />
       <MobileDrawer activePath={currentPath} />
+      <AICopilotWidget />
       <ToastContainer />
       <ScrollToTop />
     </div>

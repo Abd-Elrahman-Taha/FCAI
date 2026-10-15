@@ -62,7 +62,7 @@ export const Topbar: React.FC = () => {
       {/* Desktop sidebar toggle - Big screens only */}
       <button
         type="button"
-        className="icon-btn hidden lg:inline-grid"
+        className="hidden lg:inline-grid hover:border-cyan-400/50 transition-all text-decoration-none group cursor-pointer"
         onClick={toggleSidebar}
         aria-label="Toggle sidebar"
         title="Toggle sidebar"

@@ -4,6 +4,8 @@ import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';
 import { LiveCampusPulse } from '../../components/common/LiveCampusPulse';
 import { ScrollReveal } from '../../components/common/ScrollReveal';
+import { NeonRadialGauge } from '../../components/common/NeonRadialGauge';
+import { AnimatedCounter } from '../../components/common/AnimatedCounter';
 
 export const StudentDashboard: React.FC = () => {
   const [data, setData] = useState<any>(null);
@@ -74,49 +76,97 @@ export const StudentDashboard: React.FC = () => {
         <LiveCampusPulse role="student" />
       </ScrollReveal>
 
-      {/* 3. Summarized High-Impact 4 KPIs */}
+      {/* 3. Summarized High-Impact 4 KPIs with Sci-Fi Telemetry Gauges */}
       <ScrollReveal direction="up" delay={0.15}>
         <div className="grid g-4 mb-6">
-          <a href="#/student/academic" className="card kpi hover group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:hover:border-cyan-400/50">
-            <div className="kpi-top">
-              <span className="kpi-label">Cumulative GPA</span>
-              <span className="kpi-ico info group-hover:scale-110 transition-transform"><Icon name="award" /></span>
-            </div>
-            <div className="kpi-value">{student.gpa} <small>/ 4.00</small></div>
-            <div className="kpi-meta">
-              <span className="trend-up">↑ +0.08</span> Standing: <strong>Very Good</strong>
+          {/* GPA Telemetry Gauge Card */}
+          <a href="#/student/academic" className="card kpi hover group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:hover:border-cyan-400/50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="kpi-top mb-1">
+                  <span className="kpi-label">Cumulative GPA</span>
+                  <span className="kpi-ico info group-hover:scale-110 transition-transform"><Icon name="award" /></span>
+                </div>
+                <div className="kpi-value text-2xl font-bold flex items-baseline gap-1">
+                  <AnimatedCounter value={Number(student.gpa) || 3.42} decimals={2} />
+                  <span className="text-xs font-normal opacity-70">/ 4.00</span>
+                </div>
+                <div className="kpi-meta mt-1">
+                  <span className="text-cyan-600 dark:text-cyan-400 font-semibold">↑ +0.08</span> · <strong>Very Good</strong>
+                </div>
+              </div>
+              <div className="flex-shrink-0">
+                <NeonRadialGauge
+                  value={Number(student.gpa) || 3.42}
+                  max={4.0}
+                  size={76}
+                  strokeWidth={6}
+                  decimals={2}
+                  label="GPA"
+                  glowColor="cyan"
+                />
+              </div>
             </div>
           </a>
 
-          <a href="#/student/attendance" className="card kpi hover group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:hover:border-cyan-400/50">
-            <div className="kpi-top">
-              <span className="kpi-label">Overall Attendance</span>
-              <span className="kpi-ico success group-hover:scale-110 transition-transform"><Icon name="userCheck" /></span>
-            </div>
-            <div className="kpi-value">{kpis.attendance}%</div>
-            <div className="kpi-meta">
-              <span className="trend-up">Healthy</span> 4 out of 5 courses &gt; 85%
+          {/* Attendance Ring Card with 75% Threshold Alert */}
+          <a href="#/student/attendance" className="card kpi hover group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:hover:border-cyan-400/50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="kpi-top mb-1">
+                  <span className="kpi-label">Overall Attendance</span>
+                  <span className="kpi-ico info group-hover:scale-110 transition-transform"><Icon name="userCheck" /></span>
+                </div>
+                <div className="kpi-value text-2xl font-bold flex items-baseline">
+                  <AnimatedCounter value={Number(kpis.attendance) || 92} suffix="%" />
+                </div>
+                <div className="kpi-meta mt-1 text-xs">
+                  <span className={Number(kpis.attendance) >= 75 ? "text-cyan-600 dark:text-cyan-400 font-medium" : "text-amber-500 font-bold"}>
+                    {Number(kpis.attendance) >= 75 ? 'Safe (>75% Policy)' : '⚠️ Warning (<75%)'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex-shrink-0">
+                <NeonRadialGauge
+                  value={Number(kpis.attendance) || 92}
+                  max={100}
+                  size={76}
+                  strokeWidth={6}
+                  warningThreshold={75}
+                  decimals={0}
+                  sublabel="%"
+                  label="RATE"
+                  glowColor="cyan"
+                />
+              </div>
             </div>
           </a>
 
-          <a href="#/student/courses" className="card kpi hover group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:hover:border-cyan-400/50">
+          {/* Enrolled Load Card */}
+          <a href="#/student/courses" className="card kpi hover group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:hover:border-cyan-400/50 p-4">
             <div className="kpi-top">
               <span className="kpi-label">Enrolled Load</span>
               <span className="kpi-ico info group-hover:scale-110 transition-transform"><Icon name="book" /></span>
             </div>
-            <div className="kpi-value">{kpis.coursesCount} <small>Courses (17 CH)</small></div>
-            <div className="kpi-meta">
+            <div className="kpi-value text-2xl font-bold flex items-baseline gap-1">
+              <AnimatedCounter value={Number(kpis.coursesCount) || 5} />
+              <small className="text-xs font-normal opacity-70">Courses (17 CH)</small>
+            </div>
+            <div className="kpi-meta mt-1 text-xs text-slate-500 dark:text-slate-400">
               <span>Next exam in 4 days (Algorithms)</span>
             </div>
           </a>
 
-          <a href="#/student/fees" className="card kpi hover group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:hover:border-cyan-400/50" style={{ borderLeft: '3px solid #b45309' }}>
+          {/* Outstanding Tuition Card */}
+          <a href="#/student/fees" className="card kpi hover group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:hover:border-cyan-400/50 p-4" style={{ borderLeft: '3px solid #b45309' }}>
             <div className="kpi-top">
               <span className="kpi-label">Outstanding Tuition</span>
               <span className="kpi-ico warning group-hover:scale-110 transition-transform"><Icon name="wallet" /></span>
             </div>
-            <div className="kpi-value" style={{ fontSize: '24px' }}>EGP 7,650</div>
-            <div className="kpi-meta" style={{ color: '#b45309' }}>
+            <div className="kpi-value text-2xl font-bold" style={{ color: '#b45309' }}>
+              <AnimatedCounter value={7650} prefix="EGP " />
+            </div>
+            <div className="kpi-meta mt-1 text-xs" style={{ color: '#b45309' }}>
               <span>Fawry Code Available &rarr;</span>
             </div>
           </a>

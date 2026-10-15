@@ -7,6 +7,7 @@ import { PublicFooter } from '../../components/common/PublicFooter';
 import { ScrollToTop } from '../../components/common/ScrollToTop';
 import { BottomNav } from '../../components/layout/BottomNav';
 import { MobileDrawer } from '../../components/layout/MobileDrawer';
+import { AmbientMotionAura } from '../../components/common/AmbientMotionAura';
 import type { Role } from '../../types';
 
 export const HomePage: React.FC = () => {
@@ -104,13 +105,8 @@ export const HomePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020b17] text-slate-800 dark:text-slate-100 overflow-x-clip selection:bg-sky-400 selection:text-slate-950 pb-20 md:pb-0 transition-colors duration-300">
-      {/* Dynamic Background Glowing Ambient Light Orbs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
-        <div className="absolute w-[650px] h-[650px] rounded-full blur-[140px] -top-32 -left-20 bg-blue-300/25 dark:bg-blue-600/15 animate-orb-float" />
-        <div className="absolute w-[550px] h-[550px] rounded-full blur-[130px] top-1/3 -right-24 bg-sky-300/25 dark:bg-sky-500/15 animate-float-slow" />
-        <div className="absolute w-[580px] h-[580px] rounded-full blur-[150px] bottom-10 left-1/4 bg-blue-400/20 dark:bg-blue-700/15 animate-float-delayed" />
-        <div className="absolute w-[420px] h-[420px] rounded-full blur-[120px] top-2/3 right-1/3 bg-cyan-300/20 dark:bg-sky-600/10 animate-float" />
-      </div>
+      {/* Ambient Motion Aura: Subtle Cyber-Grid & Floating Neural Orbs */}
+      <AmbientMotionAura />
 
       {/* Sticky Glassmorphic Top Navigation Header with Logo Scroll-to-Top */}
       <PublicHeader activeNav="home" />
