@@ -71,36 +71,22 @@ export const Topbar: React.FC = () => {
       </button>
 
       {/* Desktop Brand Pill on Big Screens — ONLY appears when sidebar is collapsed (closed) */}
-      {isSidebarCollapsed && (
-        <a
-          href="#/home"
-          className="hidden lg:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-900/70 border border-cyan-500/20 hover:border-cyan-400/50 transition-all text-decoration-none group cursor-pointer"
-          title="Go to Home Landing Page"
-        >
-          <FCAILogo size={26} />
-          <span className="font-extrabold text-[13.5px] text-white group-hover:text-cyan-300 transition-colors">
-            FCAI BSU
-          </span>
-          <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-            2026/2027
-          </span>
-        </a>
-      )}
+    
 
       {/* Mobile & Tablet Brand Identity matching HomePage */}
       <a href="#/home" className="mobile-brand-pill lg:hidden cursor-pointer group" style={{ textDecoration: 'none' }} title="Go to FCAI BSU Home">
         <div className="relative flex-shrink-0">
-          <FCAILogo size={32} />
+         
           <div className="absolute -inset-1 rounded-full bg-cyan-400/25 blur-sm pointer-events-none" />
         </div>
-        <div className="flex items-center gap-1.5 min-w-0">
+        {isSidebarCollapsed && (<div className="flex items-center gap-1.5 min-w-0">
           <span className="mobile-brand-name font-extrabold text-[15px] tracking-tight text-white whitespace-nowrap">
             FCAI BSU
           </span>
           <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 whitespace-nowrap">
             2026/2027
           </span>
-        </div>
+        </div>)}
       </a>
 
       {/* Global Search */}

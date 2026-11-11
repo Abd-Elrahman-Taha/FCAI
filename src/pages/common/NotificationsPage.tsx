@@ -1,5 +1,17 @@
+/**
+ * Screen 39: Notifications Center
+ * 
+ * BACKEND INTEGRATION POINT:
+ * - Module: `notificationApi` in `src/api/notification.api.ts`
+ * - Or consume via `useNotifications()` hook in `src/context/NotificationContext.tsx`:
+ *   `const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();`
+ */
+
 import React, { useEffect, useState } from 'react';
 import { fakeApi } from '../../services/fakeApi';
+// When ready to connect dedicated Context:
+// import { useNotifications } from '../../context/NotificationContext';
+// import { notificationApi } from '../../api/notification.api';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';

@@ -1,5 +1,16 @@
+/**
+ * Screen 67: Teaching Assistant Dashboard
+ * 
+ * BACKEND INTEGRATION POINT:
+ * - Module: `taApi.getDashboard()` in `src/api/ta.api.ts`
+ * - Endpoint: GET /ta/dashboard (TA_ENDPOINTS.DASHBOARD)
+ * - Response DTO: `TaDashboardResponse` (src/types/api/ta.types.ts)
+ */
+
 import React, { useEffect, useState } from 'react';
 import { fakeApi } from '../../services/fakeApi';
+// When ready to connect dedicated API:
+// import { taApi } from '../../api/ta.api';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';

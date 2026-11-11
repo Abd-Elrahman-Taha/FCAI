@@ -13,3 +13,4 @@ export { adminService } from './adminService';
 export { superAdminService } from './superAdminService';
 export { aiService } from './aiService';
 export { mockDataApi } from './mockDataApi';
+export * from './endpoints';

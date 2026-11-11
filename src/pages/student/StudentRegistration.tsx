@@ -1,5 +1,16 @@
+/**
+ * Screen 12: Course Registration & Add/Drop
+ * 
+ * BACKEND INTEGRATION POINT:
+ * - Load Offerings: `studentApi.getRegistrationOfferings()` in `src/api/student.api.ts` (GET /student/registration/offerings)
+ * - Submit Registration: `studentApi.registerCourse({ offeringId })` (POST /student/registration/enroll)
+ * - Or consume via `useAcademic()` hook in `src/context/AcademicContext.tsx`
+ */
+
 import React, { useEffect, useState } from 'react';
 import { fakeApi } from '../../services/fakeApi';
+// When ready to connect dedicated API:
+// import { studentApi } from '../../api/student.api';
 import { useAuth } from '../../context/AuthContext';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';

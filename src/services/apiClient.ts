@@ -1,17 +1,16 @@
 /**
- * Core HTTP API Client
+ * Centralized HTTP Client Configuration
  * 
- * A clean, robust fetch-based HTTP client for interacting with any REST backend.
- * Features:
- * - Automatic JWT Bearer token authentication
- * - Query parameter serialization
- * - Timeout handling via AbortController
- * - Unified ApiError parsing
- * - Support for JSON payloads and Multipart FormData (file uploads)
- * - Development logging
+ * Standardized HTTP transport client (using fetch) pre-configured with:
+ * - Base URL from environment (VITE_API_BASE_URL)
+ * - Automatic Authorization: Bearer <token> header injection
+ * - Request timeout via AbortController
+ * - Unified error handling via ApiError
+ * - Support for JSON and Multipart/FormData payloads
  */
 
 import { config } from '../config/env';
+import type { RequestOptions } from '../types/api/common.types';
 
 export class ApiError extends Error {
   public status: number;
@@ -28,15 +27,10 @@ export class ApiError extends Error {
   }
 }
 
-export interface RequestOptions extends RequestInit {
-  params?: Record<string, any>;
-  timeoutMs?: number;
-}
-
 export const TOKEN_STORAGE_KEY = 'fcai_token';
 export const REFRESH_TOKEN_STORAGE_KEY = 'fcai_refresh_token';
 
-/** Token storage utilities */
+/** Storage helpers for JWT tokens */
 export const tokenStorage = {
   get: (): string | null => localStorage.getItem(TOKEN_STORAGE_KEY),
   set: (token: string): void => localStorage.setItem(TOKEN_STORAGE_KEY, token),
@@ -48,14 +42,13 @@ export const tokenStorage = {
   setRefreshToken: (token: string): void => localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token),
 };
 
-class ApiClient {
+export class ApiClient {
   private baseUrl: string;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl.replace(/\/+$/, '');
   }
 
-  /** Update base URL dynamically at runtime if needed */
   public setBaseUrl(url: string) {
     this.baseUrl = url.replace(/\/+$/, '');
   }
@@ -65,7 +58,7 @@ class ApiClient {
   }
 
   /**
-   * Core request dispatcher with interceptors, timeouts and error handling
+   * Core request dispatcher with authorization headers, timeout, and JSON handling
    */
   public async request<T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     const {
@@ -75,7 +68,7 @@ class ApiClient {
       ...fetchOptions
     } = options;
 
-    // 1. Build Full URL with query parameters
+    // 1. Build URL with query params
     let url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}/${endpoint.replace(/^\/+/, '')}`;
     if (params) {
       const searchParams = new URLSearchParams();
@@ -85,34 +78,29 @@ class ApiClient {
         }
       });
       const qs = searchParams.toString();
-      if (qs) {
-        url += (url.includes('?') ? '&' : '?') + qs;
-      }
+      if (qs) url += (url.includes('?') ? '&' : '?') + qs;
     }
 
-    // 2. Prepare Headers
+    // 2. Prepare headers with JWT Token
     const headers = new Headers(customHeaders);
     if (!headers.has('Accept')) {
       headers.set('Accept', 'application/json');
     }
-
-    // Inject JWT Bearer token if present
     const token = tokenStorage.get();
     if (token && !headers.has('Authorization')) {
       headers.set('Authorization', `Bearer ${token}`);
     }
 
-    // If body is NOT FormData, set application/json
     const isFormData = fetchOptions.body instanceof FormData;
     if (!isFormData && fetchOptions.body && !headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');
     }
 
-    // 3. Setup Request Timeout
+    // 3. Timeout controller
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    // 4. Logging in Dev Mode
+    // 4. Request logging
     if (config.enableApiLogging) {
       console.log(`%c[API REQ] ${fetchOptions.method || 'GET'} %c${url}`, 'color: #38bdf8; font-weight: bold;', 'color: inherit;');
     }
@@ -126,13 +114,13 @@ class ApiClient {
 
       clearTimeout(timeoutId);
 
-      // Handle 401 Unauthorized (Session Expired or Invalid Token)
+      // Handle 401 Unauthorized session expiry
       if (response.status === 401) {
         tokenStorage.remove();
         window.dispatchEvent(new CustomEvent('fcai:unauthorized'));
       }
 
-      // Parse JSON response body
+      // Parse JSON body
       let data: any = null;
       const contentType = response.headers.get('content-type') || '';
       if (contentType.includes('application/json')) {
@@ -147,18 +135,18 @@ class ApiClient {
       }
 
       if (config.enableApiLogging) {
-        const statusColor = response.ok ? '#34d399' : '#ef4444';
+        const statusColor = response.ok ? '#38bdf8' : '#ef4444';
         console.log(`%c[API RES ${response.status}] %c${url}`, `color: ${statusColor}; font-weight: bold;`, 'color: inherit;', data);
       }
 
       if (!response.ok) {
-        const errorMessage =
+        const message =
           (data && typeof data === 'object' && (data.message || data.error || data.detail)) ||
           `Request failed with status ${response.status}`;
-        throw new ApiError(errorMessage, response.status, data);
+        throw new ApiError(message, response.status, data);
       }
 
-      // If backend wraps payloads in { success: true, data: T }, unpack data automatically
+      // Automatically unwrap { success: true, data: T } if present
       if (data && typeof data === 'object' && 'data' in data && 'success' in data) {
         return data.data as T;
       }
@@ -166,16 +154,12 @@ class ApiClient {
       return data as T;
     } catch (err: any) {
       clearTimeout(timeoutId);
-
       if (err.name === 'AbortError') {
         throw new ApiError(`Request timed out after ${timeoutMs}ms`, 408, null, true);
       }
-
       if (err instanceof ApiError) {
         throw err;
       }
-
-      // Network unreachable / CORS error / Server down
       throw new ApiError(
         err.message || 'Unable to connect to the backend server. Please verify network connectivity.',
         0,
@@ -185,7 +169,6 @@ class ApiClient {
     }
   }
 
-  // Convenient HTTP Verb wrappers
   public get<T = any>(endpoint: string, params?: Record<string, any>, options: RequestOptions = {}): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: 'GET', params });
   }
@@ -221,15 +204,11 @@ class ApiClient {
     return this.request<T>(endpoint, { ...options, method: 'DELETE' });
   }
 
-  /** Upload single or multiple files with form fields */
   public upload<T = any>(endpoint: string, formData: FormData, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>(endpoint, {
-      ...options,
-      method: 'POST',
-      body: formData,
-    });
+    return this.request<T>(endpoint, { ...options, method: 'POST', body: formData });
   }
 }
 
-/** Singleton instance configured with base URL from environment */
+/** Pre-configured singleton API client instance */
 export const apiClient = new ApiClient(config.apiBaseUrl);
+export type { RequestOptions };

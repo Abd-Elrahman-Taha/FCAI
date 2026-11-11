@@ -1,26 +1,35 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+/**
+ * Authentication & Identity State Context
+ * 
+ * Manages institutional authentication state, current user profile,
+ * active portal role, and session expiration.
+ * 
+ * BACKEND INTEGRATION INSTRUCTIONS:
+ * When your backend authentication endpoints are ready:
+ * 1. Open `src/api/auth.api.ts` and implement `authApi.login()`, `authApi.getCurrentUser()`, etc.
+ * 2. In this file, update the `login`, `loadUserProfile`, and `logout` actions to call `authApi`.
+ */
+
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { Role, User, NotificationItem } from '../types';
 import type { LoginRequest } from '../types/api';
+import type { ThemeMode, ToastItem } from './UIContext';
 import { api, tokenStorage } from '../services/api';
 
-export interface ToastItem {
-  id: string;
-  title: string;
-  message: string;
-  type: 'success' | 'error' | 'info';
-}
+export type { ThemeMode, ToastItem };
 
-export type ThemeMode = 'light' | 'dark';
-
-interface AuthContextType {
+export interface AuthContextType {
   currentUser: User | null;
   isAuthenticated: boolean;
   role: Role;
   isLoadingUser: boolean;
+  authError: string | null;
   login: (credentialsOrRole?: Role | LoginRequest) => Promise<User | null>;
   switchRole: (newRole: Role) => Promise<void>;
   setRole: (newRole: Role) => void;
   logout: () => void;
+  
+  // UI & Shell Convenience delegations (100% backward-compatible with existing 200+ components)
   toasts: ToastItem[];
   showToast: (arg1: string, arg2?: string, arg3?: 'success' | 'error' | 'info') => void;
   removeToast: (id: string) => void;
@@ -43,6 +52,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Theme state
   const [theme, setThemeState] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem('fcai_theme');
     if (saved === 'dark' || saved === 'light') return saved;
@@ -62,16 +72,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('fcai_theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setThemeState(prev => (prev === 'light' ? 'dark' : 'light'));
-  };
+  const toggleTheme = () => setThemeState(prev => (prev === 'light' ? 'dark' : 'light'));
+  const setTheme = (t: ThemeMode) => setThemeState(t);
 
-  const setTheme = (t: ThemeMode) => {
-    setThemeState(t);
-  };
-
+  // Active Role state
   const [role, setRoleState] = useState<Role>(() => {
-    // Check initial hash for role e.g. #/doctor/...
     const hash = window.location.hash.replace(/^#\/?/, '');
     const firstSeg = hash.split('/')[0] as Role;
     if (['student', 'doctor', 'ta', 'admin', 'employee'].includes(firstSeg)) {
@@ -81,20 +86,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return saved || 'student';
   });
 
+  // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem('fcai_authenticated') === 'true';
   });
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState<boolean>(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // UI state
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadOverride, setUnreadOverride] = useState<number | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     return localStorage.getItem('fcai-collapsed') === '1';
   });
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
-  // Listen for global 401 unauthorized events to gracefully expire session
+  // Session expiry listener (401 event)
   useEffect(() => {
     const handleUnauthorized = () => {
       setIsAuthenticated(false);
@@ -108,40 +118,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('fcai:unauthorized', handleUnauthorized);
   }, []);
 
-  // Load user profile when role changes and user is authenticated
+  // Fetch current user profile when authenticated
+  const loadUserProfile = useCallback(async (targetRole: Role) => {
+    setIsLoadingUser(true);
+    setAuthError(null);
+    try {
+      // TODO: [Backend Integration] Replace with `await authApi.getCurrentUser(targetRole)`
+      const user = await api.getCurrentUser(targetRole);
+      setCurrentUser(user);
+    } catch (err: any) {
+      setAuthError(err?.message || 'Failed to fetch user profile.');
+    } finally {
+      setIsLoadingUser(false);
+    }
+  }, []);
+
   useEffect(() => {
-    let isMounted = true;
     if (!isAuthenticated) {
       setCurrentUser(null);
       setIsLoadingUser(false);
       return;
     }
-    setIsLoadingUser(true);
-    api.getCurrentUser(role).then(u => {
-      if (isMounted) {
-        setCurrentUser(u);
-        setIsLoadingUser(false);
-      }
-    }).catch(() => {
-      if (isMounted) {
-        setIsLoadingUser(false);
-      }
-    });
+    loadUserProfile(role);
     localStorage.setItem('fcai_active_role', role);
-    return () => { isMounted = false; };
-  }, [role, isAuthenticated]);
+  }, [role, isAuthenticated, loadUserProfile]);
 
-  // Load notifications
+  // Load initial notifications
   useEffect(() => {
     api.getNotifications().then(items => setNotifications(items)).catch(() => {});
   }, []);
 
+  /**
+   * Action: Authenticate user
+   */
   const login = async (credentialsOrRole?: Role | LoginRequest): Promise<User | null> => {
     setIsLoadingUser(true);
+    setAuthError(null);
     try {
       let targetRole: Role = role;
       let user: User;
 
+      // TODO: [Backend Integration] Connect directly to `authApi.login(credentials)`
       if (typeof credentialsOrRole === 'string') {
         targetRole = credentialsOrRole;
         user = await api.auth.login({ role: targetRole });
@@ -162,19 +179,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return user;
     } catch (err: any) {
       setIsLoadingUser(false);
+      setAuthError(err?.message || 'Authentication failed.');
       throw err;
     }
   };
 
+  /**
+   * Action: Switch active portal role
+   */
   const switchRole = async (newRole: Role) => {
     setRoleState(newRole);
     localStorage.setItem('fcai_active_role', newRole);
     if (isAuthenticated) {
-      setIsLoadingUser(true);
-      const u = await api.getCurrentUser(newRole);
-      setCurrentUser(u);
-      setIsLoadingUser(false);
-      showToast('Role Switched', `Now browsing as ${u.roleLabel} (${u.name})`, 'info');
+      await loadUserProfile(newRole);
+      showToast('Role Switched', `Now browsing as ${newRole.toUpperCase()} portal`, 'info');
     }
   };
 
@@ -182,16 +200,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     switchRole(newRole);
   };
 
+  /**
+   * Action: Logout
+   */
   const logout = () => {
     setIsAuthenticated(false);
     setCurrentUser(null);
     localStorage.removeItem('fcai_authenticated');
     tokenStorage.remove();
+    // TODO: [Backend Integration] Connect to `authApi.logout()`
     api.auth.logout().catch(() => {});
-    showToast('Logged Out', 'You have been logged out of the institutional session.');
+    showToast('Logged Out', 'You have been signed out of your institutional session.');
     window.location.hash = '#/home';
   };
 
+  // Toast Helpers
   const showToast = (arg1: string, arg2?: string, arg3?: 'success' | 'error' | 'info') => {
     let title = arg1;
     let message = arg2 || '';
@@ -215,9 +238,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
+  // Notification Helpers
   const markNotificationRead = async (id: string) => {
     await api.markNotificationRead(id);
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n));
+    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, unread: false } : n)));
   };
 
   const markAllNotificationsRead = async () => {
@@ -225,24 +249,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
     setUnreadOverride(0);
     showToast('All Caught Up', 'All notifications marked as read.');
-  };
-
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
-
-  const toggleSidebar = () => {
-    setIsSidebarCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem('fcai-collapsed', next ? '1' : '0');
-      return next;
-    });
-  };
-
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(prev => !prev);
-  };
-
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
   };
 
   const unreadCountComputed = notifications.filter(n => n.unread).length;
@@ -256,6 +262,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Shell Helpers
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('fcai-collapsed', next ? '1' : '0');
+      return next;
+    });
+  };
+
+  const toggleMobileMenu = () => setIsMobileMenuOpen(prev => !prev);
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
   return (
     <AuthContext.Provider
       value={{
@@ -263,6 +281,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated,
         role,
         isLoadingUser,
+        authError,
         login,
         switchRole,
         setRole,
@@ -283,17 +302,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         closeMobileMenu,
         theme,
         setTheme,
-        toggleTheme
+        toggleTheme,
       }}
-
     >
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
   return context;
 };

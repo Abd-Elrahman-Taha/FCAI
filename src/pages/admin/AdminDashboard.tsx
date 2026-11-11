@@ -1,5 +1,17 @@
+/**
+ * Screen 73: College Administration Dashboard
+ * 
+ * BACKEND INTEGRATION POINT:
+ * - Module: `adminApi.getDashboard()` in `src/api/admin.api.ts`
+ * - Endpoint: GET /admin/dashboard (ADMIN_ENDPOINTS.DASHBOARD)
+ * - Approve Grades: `adminApi.approveGradePackage(packageId)` (POST /admin/grade-packages/:id/approve)
+ * - Response DTO: `AdminDashboardResponse` (src/types/api/admin.types.ts)
+ */
+
 import React, { useEffect, useState } from 'react';
 import { fakeApi } from '../../services/fakeApi';
+// When ready to connect dedicated API:
+// import { adminApi } from '../../api/admin.api';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';

@@ -1,5 +1,17 @@
+/**
+ * Screen 8: Student Dashboard Overview
+ * 
+ * BACKEND INTEGRATION POINT:
+ * - Dedicated API: `studentApi.getDashboard()` in `src/api/student.api.ts`
+ * - Endpoint: GET /student/dashboard (STUDENT_ENDPOINTS.DASHBOARD)
+ * - Response DTO: `StudentDashboardResponse` (src/types/api/student.types.ts)
+ */
+
 import React, { useEffect, useState } from 'react';
 import { fakeApi } from '../../services/fakeApi';
+// When ready to connect dedicated API:
+// import { studentApi } from '../../api/student.api';
+// import type { StudentDashboardResponse } from '../../types/api';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';
 import { LiveCampusPulse } from '../../components/common/LiveCampusPulse';

@@ -1,6 +1,19 @@
+/**
+ * Screen 1: Institutional Portal Sign-In
+ * 
+ * BACKEND INTEGRATION POINT:
+ * This component calls `login(credentials)` from `useAuth()` (src/context/AuthContext.tsx).
+ * When ready to integrate real backend authentication:
+ * 1. Implement `authApi.login` in `src/api/auth.api.ts` pointing to `POST /auth/login`.
+ * 2. `AuthContext.tsx` dispatches credentials to `authApi.login` and stores the returned JWT token.
+ * 3. Successful authentication populates `currentUser` and redirects to the role dashboard.
+ */
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+// When ready for direct API calls:
+// import { authApi } from '../../api/auth.api';
 import { Icon, FCAILogo } from '../../components/icons/Icon';
 import { EducationHeroIllustration } from '../../components/auth/EducationHeroIllustration';
 import type { Role } from '../../types';

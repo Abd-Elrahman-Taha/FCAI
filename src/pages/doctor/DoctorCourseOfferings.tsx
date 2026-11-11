@@ -1,5 +1,16 @@
+/**
+ * Screen 43: Doctor Course Offerings
+ * 
+ * BACKEND INTEGRATION POINT:
+ * - Module: `doctorApi.getCourses()` in `src/api/doctor.api.ts`
+ * - Endpoint: GET /doctor/courses (DOCTOR_ENDPOINTS.COURSES)
+ * - Response Type: Course[] (src/types/index.ts)
+ */
+
 import React, { useEffect, useState } from 'react';
 import { fakeApi } from '../../services/fakeApi';
+// When ready to connect dedicated API:
+// import { doctorApi } from '../../api/doctor.api';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';

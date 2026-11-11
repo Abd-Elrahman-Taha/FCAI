@@ -1,286 +1,182 @@
-# FCAI BSU Platform - Real API Integration & Backend Guide
+# Manual Backend API Integration Guide
 
-This document explains the architecture of the API layer and provides clear, step-by-step instructions to connect this frontend to your real backend server (such as **FastAPI, Node.js/Express, Spring Boot, ASP.NET, or Django**).
-
----
-
-## 1. Architecture Overview
-
-The frontend uses a **layered, decoupled service architecture**:
-
-```
-[ React 19 UI Pages & Components ]
-             │
-             ▼
-  [ Unified API Facade (`api`) ] ─── (`api.auth`, `api.student`, `api.doctor`, etc.)
-             │
-      ┌──────┴────────────────────────────────┐
-      │ Checks VITE_USE_MOCK_API in `.env`   │
-      ▼                                       ▼
-[ Real REST Client (`apiClient`) ]    [ In-Memory Mock (`mockDataApi`) ]
-      │                                       │
-      ▼                                       ▼
-(HTTP Fetch + Bearer Token)           (Instant Local Demo Data)
-      │
-      ▼
-[ Real Backend Server ]
-(FastAPI / Node / Spring / etc.)
-```
-
-### Key Advantages
-1. **Single Switch**: Toggle between real backend and simulated demo data simply by changing `VITE_USE_MOCK_API` in `.env`.
-2. **Zero Breaking Changes**: Existing screens importing `fakeApi` automatically route through the real backend when mock mode is disabled.
-3. **Modular Domain Services**: Clean, typed services in `src/services/` for every domain (`authService`, `studentService`, `doctorService`, `taService`, `adminService`, `superAdminService`, `aiService`).
-4. **Automatic JWT Authentication**: The `apiClient` automatically injects `Authorization: Bearer <token>` on all requests once logged in.
-5. **Automatic 401 Session Expiration**: If the backend returns HTTP 401, the client automatically clears tokens and redirects to the login screen with a toast notification.
+This guide is written specifically for the backend/frontend engineer who will **manually write the API requests, connect endpoints, and handle responses**.
 
 ---
 
-## 2. Quick Start: Connecting to Your Real Backend
+## 1. Intended Developer Workflow
 
-### Step 1: Configure your `.env` file
-In the project root, open or create `.env` (you can copy `.env.example`):
+For every feature you want to integrate with your real backend, follow these 5 steps:
 
-```bash
-# 1. Point to your backend URL (e.g. FastAPI / Express / Spring Boot)
-VITE_API_BASE_URL=http://localhost:8000/api/v1
-
-# 2. Set mock mode to "false" to enable real HTTP calls
-VITE_USE_MOCK_API=false
-
-# 3. Enable debug logging in the browser console
-VITE_ENABLE_API_LOGGING=true
 ```
+Step 1: Check/Update Endpoint Path
+   └── Open `src/api/endpoints.ts`
+       Verify or adjust the route constant (e.g. `STUDENT_ENDPOINTS.COURSES`)
 
-### Step 2: Configure CORS in your Backend
-Your backend must allow requests from the Vite frontend development server (usually `http://localhost:5173` or `http://localhost:5174`).
+Step 2: Implement the HTTP Call
+   └── Open the domain API file (e.g. `src/api/student.api.ts`)
+       Replace the placeholder throw statement with your `apiClient` call (or Axios)
 
-#### Example: FastAPI (Python)
-```python
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+Step 3: Define/Verify TypeScript Types
+   └── Check `src/types/api/` for the expected request payload and response DTO
 
-app = FastAPI()
+Step 4: Connect to Context or Component
+   └── If global state is needed, connect to `src/context/`
+   └── If local to a page, import the API function directly in `src/pages/...`
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-```
-
-#### Example: Express (Node.js)
-```javascript
-const express = require('express');
-const cors = require('cors');
-const app = express();
-
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174'],
-  credentials: true
-}));
-app.use(express.json());
+Step 5: Test with Backend Server
+   └── In `.env`, set `VITE_USE_MOCK_API=false`
+   └── Ensure your backend server is running on `VITE_API_BASE_URL` (e.g. http://localhost:8000/api/v1)
+   └── Test in your browser and check browser console (`[API REQ]`, `[API RES]`)
 ```
 
 ---
 
-## 3. Authentication & JWT Tokens
+## 2. Using the Centralized HTTP Client (`src/api/client.ts`)
 
-### Login Request Payload (`POST /auth/login`)
-When a student or staff member logs in, the frontend sends:
+The project provides a pre-configured `apiClient` singleton. It automatically handles:
+- Base URL (`VITE_API_BASE_URL`)
+- Authorization header injection (`Bearer <token>` from `localStorage`)
+- Request timeout via `AbortController` (defaults to 15,000ms, configurable via `VITE_API_TIMEOUT_MS`)
+- Automatic JSON serialization and header setting (`Content-Type: application/json`)
+- Multipart/FormData file uploads
+- Automatic unwrapping of standard `{ success: true, data: T }` responses
+- 401 Unauthorized event dispatching to gracefully expire sessions
 
-```json
-{
-  "email": "ahmed.hassan@fcai.bsu.edu.eg",
-  "studentCode": "2021170045",
-  "nationalId": "30302152201234",
-  "password": "UserSecurePassword123!",
-  "role": "student",
-  "rememberMe": true
+### Syntax Examples:
+
+#### GET Request with query parameters:
+```ts
+import { apiClient } from './client';
+import { STUDENT_ENDPOINTS } from './endpoints';
+import type { Course } from '../types';
+
+export async function getMyCourses(): Promise<Course[]> {
+  return apiClient.get<Course[]>(STUDENT_ENDPOINTS.COURSES, { semester: 'Fall2026' });
 }
 ```
 
-### Expected Login Response
-Your backend should return a JSON response with the user profile and a JWT token:
+#### POST Request with JSON payload:
+```ts
+import { apiClient } from './client';
+import { STUDENT_ENDPOINTS } from './endpoints';
+import type { CourseRegistrationRequest, Course } from '../types/api';
 
-```json
-{
-  "success": true,
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "user": {
-      "id": "usr_std_01",
-      "name": "Ahmed Mohamed Hassan",
-      "short": "AH",
-      "role": "student",
-      "roleLabel": "Student",
-      "email": "ahmed.hassan@fcai.bsu.edu.eg",
-      "studentCode": "2021170045",
-      "nationalId": "30302152201234",
-      "department": "Computer Science",
-      "academicLevel": "Level 3 · Junior",
-      "academicStatus": "Active",
-      "gpa": 3.42,
-      "completedCredits": 74,
-      "totalCredits": 132
-    }
+export async function registerCourse(payload: CourseRegistrationRequest): Promise<{ success: boolean; course: Course }> {
+  return apiClient.post<{ success: boolean; course: Course }>(STUDENT_ENDPOINTS.REGISTER_COURSE, payload);
+}
+```
+
+#### POST Multipart File Upload:
+```ts
+import { apiClient } from './client';
+import { STUDENT_ENDPOINTS } from './endpoints';
+
+export async function submitAssignmentFile(assignmentId: string, file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiClient.upload(STUDENT_ENDPOINTS.SUBMIT_ASSIGNMENT(assignmentId), formData);
+}
+```
+
+#### Custom Axios Option (Alternative):
+If your backend team prefers `axios`, simply install it (`npm install axios`) and replace the transport inside `src/api/client.ts`. All domain API functions will instantly use Axios with zero changes to your components!
+
+---
+
+## 3. Endpoints Catalog & Status Matrix
+
+| Domain | Feature / Operation | HTTP Method | Endpoint | Auth Required | Status |
+| :--- | :--- | :---: | :--- | :---: | :--- |
+| **Auth** | User Login | `POST` | `/auth/login` | None | `READY FOR INTEGRATION` |
+| **Auth** | User Registration | `POST` | `/auth/register` | None | `BACKEND CONTRACT REQUIRED` |
+| **Auth** | Current User Profile | `GET` | `/auth/me` | Bearer Token | `READY FOR INTEGRATION` |
+| **Auth** | Session Logout | `POST` | `/auth/logout` | Bearer Token | `READY FOR INTEGRATION` |
+| **Auth** | Forgot Password Link | `POST` | `/auth/forgot-password` | None | `READY FOR INTEGRATION` |
+| **Auth** | Reset Password | `POST` | `/auth/reset-password` | None | `READY FOR INTEGRATION` |
+| **Auth** | First-Login Security Setup | `POST` | `/auth/first-login-setup` | Bearer Token | `READY FOR INTEGRATION` |
+| **Auth** | Refresh Access Token | `POST` | `/auth/refresh-token` | Refresh Token | `BACKEND CONTRACT REQUIRED` |
+| **Student**| Dashboard KPI & Schedule | `GET` | `/student/dashboard` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Student Profile | `GET` | `/student/profile` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Enrolled Courses List | `GET` | `/student/courses` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Course Details | `GET` | `/courses/:id` | Bearer Token | `READY FOR INTEGRATION` |
+| **Student**| Course Learning Materials | `GET` | `/courses/:id/materials` | Student Token | `BACKEND CONTRACT REQUIRED` |
+| **Student**| Drop Enrolled Course | `DELETE`| `/student/courses/:id` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Registration Catalog | `GET` | `/student/registration/offerings` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Register Course Offering | `POST` | `/student/registration/enroll` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Weekly Timetable | `GET` | `/student/timetable` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Attendance Overview | `GET` | `/student/attendance` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Verify QR Attendance | `POST` | `/student/attendance/verify-qr` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Assignments List | `GET` | `/student/assignments` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Submit Assignment | `POST` | `/student/assignments/:id/submit`| Student Token | `READY FOR INTEGRATION` |
+| **Student**| Published Grades | `GET` | `/student/grades` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Cumulative GPA History | `GET` | `/student/gpa-history` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Tuition Billing Fees | `GET` | `/student/fees` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Fawry Payment Gateway | `POST` | `/student/fees/:id/pay-fawry` | Student Token | `BACKEND CONTRACT REQUIRED` |
+| **Student**| Official Receipt Voucher | `GET` | `/student/receipts/:id` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Exams List | `GET` | `/student/exams` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Exam Player Questions | `GET` | `/student/exams/:id` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Submit Exam Answers | `POST` | `/student/exams/:id/submit` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Exam Result Review | `GET` | `/student/exams/:id/result` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Service Requests List | `GET` | `/student/service-requests` | Student Token | `READY FOR INTEGRATION` |
+| **Student**| Create Service Request | `POST` | `/student/service-requests` | Student Token | `READY FOR INTEGRATION` |
+| **Doctor** | Doctor Dashboard KPIs | `GET` | `/doctor/dashboard` | Doctor Token | `READY FOR INTEGRATION` |
+| **Doctor** | Doctor Assigned Courses | `GET` | `/doctor/courses` | Doctor Token | `READY FOR INTEGRATION` |
+| **Doctor** | Course Enrolled Roster | `GET` | `/doctor/courses/:id/roster` | Doctor Token | `READY FOR INTEGRATION` |
+| **Doctor** | Upload Lecture Material | `POST` | `/doctor/courses/:id/materials` | Doctor Token | `READY FOR INTEGRATION` |
+| **Doctor** | Create Assignment | `POST` | `/doctor/assignments` | Doctor Token | `READY FOR INTEGRATION` |
+| **Doctor** | Grade Submission | `POST` | `/doctor/submissions/:id/grade` | Doctor Token | `READY FOR INTEGRATION` |
+| **Doctor** | Create Exam Blueprint | `POST` | `/doctor/exams` | Doctor Token | `READY FOR INTEGRATION` |
+| **Doctor** | Publish Exam | `PATCH`| `/doctor/exams/:id/publish` | Doctor Token | `READY FOR INTEGRATION` |
+| **Doctor** | Start QR Attendance | `POST` | `/doctor/attendance/session` | Doctor Token | `READY FOR INTEGRATION` |
+| **Doctor** | Live Attendance Stream | `GET` | `/doctor/attendance/session/:id/live`| Doctor Token | `READY FOR INTEGRATION` |
+| **Doctor** | Finalize Attendance | `POST` | `/doctor/attendance/close` | Doctor Token | `READY FOR INTEGRATION` |
+| **Doctor** | Submit Grade Package | `POST` | `/doctor/grade-packages/submit`| Doctor Token | `READY FOR INTEGRATION` |
+| **TA**     | TA Dashboard | `GET` | `/ta/dashboard` | TA Token | `READY FOR INTEGRATION` |
+| **TA**     | Assigned Lab Sections | `GET` | `/ta/sections` | TA Token | `READY FOR INTEGRATION` |
+| **TA**     | Lab Section Attendance | `GET` | `/ta/sections/:id/attendance` | TA Token | `READY FOR INTEGRATION` |
+| **TA**     | Grade Lab Submission | `POST` | `/ta/submissions/:id/grade` | TA Token | `READY FOR INTEGRATION` |
+| **Admin**  | Admin Dashboard Stats | `GET` | `/admin/dashboard` | Admin Token | `READY FOR INTEGRATION` |
+| **Admin**  | Students Directory | `GET` | `/admin/students` | Admin Token | `READY FOR INTEGRATION` |
+| **Admin**  | Create Student Account | `POST` | `/admin/students` | Admin Token | `READY FOR INTEGRATION` |
+| **Admin**  | Approve Grade Package | `POST` | `/admin/grade-packages/:id/approve` | Dean/Admin Token | `READY FOR INTEGRATION` |
+| **Admin**  | Reject Grade Package | `POST` | `/admin/grade-packages/:id/reject` | Dean/Admin Token | `READY FOR INTEGRATION` |
+| **Admin**  | Resolve Service Request| `POST` | `/admin/service-requests/:id/resolve`| Admin Token | `READY FOR INTEGRATION` |
+| **SuperAdmin**| RBAC Roles Matrix | `GET` | `/superadmin/roles` | SuperAdmin Token | `READY FOR INTEGRATION` |
+| **SuperAdmin**| Global System Config | `GET` | `/superadmin/system-config` | SuperAdmin Token | `READY FOR INTEGRATION` |
+| **SuperAdmin**| Security Policies | `GET` | `/superadmin/security-config` | SuperAdmin Token | `READY FOR INTEGRATION` |
+| **SuperAdmin**| Audit Logs | `GET` | `/superadmin/audit-logs` | SuperAdmin Token | `READY FOR INTEGRATION` |
+| **Notification**| User Notifications | `GET` | `/notifications` | Bearer Token | `READY FOR INTEGRATION` |
+| **Notification**| Mark Single Read | `PATCH`| `/notifications/:id/read` | Bearer Token | `READY FOR INTEGRATION` |
+| **Notification**| Mark All Read | `PATCH`| `/notifications/read-all` | Bearer Token | `READY FOR INTEGRATION` |
+
+---
+
+## 4. Error Handling & Status Codes
+
+All API errors thrown by `apiClient` are instances of `ApiError` (`src/api/client.ts`):
+
+```ts
+import { ApiError } from '../api/client';
+
+try {
+  await studentApi.registerCourse({ offeringId: 'CS301-S2' });
+} catch (err: unknown) {
+  if (err instanceof ApiError) {
+    console.error('Status Code:', err.status); // e.g. 400, 401, 403, 404, 409, 500
+    console.error('Backend Detail:', err.data);  // Backend JSON error response body
+    console.error('Network Error?', err.isNetworkError); // true if backend server is unreachable
   }
 }
 ```
 
-*Note: The frontend automatically unwraps `{ success: true, data: { ... } }` and stores `token` in `localStorage` under `fcai_token`.*
-
----
-
-## 4. Complete REST Endpoints Specification
-
-### 4.1 Authentication & Profile (`src/services/authService.ts`)
-
-| HTTP Method | Endpoint | Description | Request Body / Params |
-|---|---|---|---|
-| `POST` | `/auth/login` | Institutional login | `{ email?, studentCode?, nationalId?, password, role }` |
-| `POST` | `/auth/register` | Student/Staff registration | `{ name, email, password, nationalId, studentCode?, role, department }` |
-| `GET` | `/auth/me` | Fetch active user profile | Headers: `Bearer <token>` |
-| `POST` | `/auth/logout` | Invalidate active session | Headers: `Bearer <token>` |
-| `POST` | `/auth/forgot-password` | Send reset link | `{ email }` |
-| `POST` | `/auth/reset-password` | Reset password with token | `{ token, newPassword }` |
-| `POST` | `/auth/first-login-setup` | Mandatory initial password change | `{ newPassword, phone }` |
-| `GET` | `/notifications` | User notifications list | Query: `?unreadOnly=false` |
-| `PATCH` | `/notifications/:id/read` | Mark notification read | — |
-| `PATCH` | `/notifications/read-all` | Mark all read | — |
-
----
-
-### 4.2 Student Portal (`src/services/studentService.ts`)
-
-| HTTP Method | Endpoint | Description | Response Model |
-|---|---|---|---|
-| `GET` | `/student/dashboard` | Student KPIs, upcoming deadlines, attendance rate | `StudentDashboardDto` |
-| `GET` | `/student/courses` | List of enrolled courses | `Course[]` |
-| `GET` | `/courses/:id` | Detailed course syllabus, schedule, instructors | `Course` |
-| `DELETE` | `/student/courses/:id` | Drop enrolled course | `{ success: boolean }` |
-| `GET` | `/student/registration/offerings` | Available courses for credit hour registration | `Course[]` |
-| `POST` | `/student/registration/enroll` | Enroll in course | `{ offeringId: string }` |
-| `GET` | `/student/timetable` | Weekly timetable sessions | `TimetableSession[]` |
-| `GET` | `/student/attendance` | Attendance records and absences | `AttendanceSession[]` |
-| `POST` | `/student/attendance/verify-qr` | Verify rotating dynamic QR and GPS location | `{ qrKey, coords: { lat, lng } }` |
-| `GET` | `/student/assignments` | Course assignments | `Assignment[]` (filter: `?tab=all/pending/submitted/graded`) |
-| `POST` | `/student/assignments/:id/submit`| Submit assignment file | `multipart/form-data` |
-| `GET` | `/student/grades` | Semester academic grades & GPA components | `CourseGrade[]` |
-| `GET` | `/student/gpa-history` | Cumulative GPA progression chart | `GpaHistoryDto` |
-| `GET` | `/student/fees` | Tuition invoices and due payments | `StudentFee[]` |
-| `POST` | `/student/fees/:id/pay-fawry` | Generate Fawry payment reference code | `{ referenceNumber, expiryDate }` |
-| `GET` | `/student/receipts/:id` | Official paid receipt | `Receipt` |
-| `GET` | `/student/exams` | Quizzes, midterms, and finals | `Exam[]` |
-| `GET` | `/student/exams/:id` | Single exam with questions for exam player | `Exam` |
-| `POST` | `/student/exams/:id/submit` | Submit answers for exam | `{ answers: Record<string, any> }` |
-| `GET` | `/student/exams/:id/result` | Exam score breakdown and feedback | `ExamResultDto` |
-| `GET` | `/student/service-requests` | Student administrative petitions | `ServiceRequest[]` |
-| `POST` | `/student/service-requests` | Submit new petition (Transcript, Student Card, etc.) | `ServiceRequest` |
-| `DELETE` | `/student/service-requests/:id`| Cancel pending request | `{ success: boolean }` |
-| `GET` | `/student/profile` | Student academic record & contact data | `User` |
-| `PATCH` | `/student/profile` | Update contact phone or email | `{ phone, email }` |
-
----
-
-### 4.3 Doctor / Instructor Portal (`src/services/doctorService.ts`)
-
-| HTTP Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/doctor/dashboard` | Doctor overview, teaching schedule, pending grading |
-| `GET` | `/doctor/courses` | Courses assigned to this instructor |
-| `GET` | `/doctor/courses/:id/roster` | List of enrolled students in course |
-| `GET` | `/doctor/exams` | Exam blueprints created by doctor |
-| `POST` | `/doctor/exams` | Create new exam / quiz |
-| `PATCH` | `/doctor/exams/:id/publish` | Publish exam to student portals |
-| `GET` | `/doctor/grade-packages` | Semester grade packages status |
-| `POST` | `/doctor/grade-packages/submit`| Submit final grades to Administration |
-| `POST` | `/doctor/courses/:id/attendance-session` | Generate dynamic rotating QR code for lecture |
-| `GET` | `/doctor/schedule` | Weekly teaching schedule |
-
----
-
-### 4.4 Teaching Assistant Portal (`src/services/taService.ts`)
-
-| HTTP Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/ta/dashboard` | TA section summaries and pending lab grading |
-| `GET` | `/ta/sections` | Lab sections assigned to TA |
-| `GET` | `/ta/sections/:id/attendance` | Section lab attendance roster |
-| `GET` | `/ta/sections/:id/submissions` | Student practical assignment submissions |
-| `POST` | `/ta/submissions/:id/grade` | Submit grade and feedback for lab submission |
-| `GET` | `/ta/discussions/schedule` | TA office hours and lab discussion schedule |
-
----
-
-### 4.5 Administration & Governance (`src/services/adminService.ts`)
-
-| HTTP Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/admin/dashboard` | College KPIs, active registrations, faculty metrics |
-| `GET` | `/admin/students` | Search and filter all college students |
-| `GET` | `/admin/doctors` | Faculty professor directory |
-| `GET` | `/admin/course-offerings` | Curriculum offerings for term planning |
-| `GET` | `/admin/grade-packages` | Grade packages awaiting Dean approval |
-| `POST` | `/admin/grade-packages/:id/approve` | Approve and publish official grades |
-| `POST` | `/admin/grade-packages/:id/reject` | Return grade package to doctor with revision notes |
-| `GET` | `/admin/rooms` | Campus lecture halls, smart labs, and capacities |
-| `GET` | `/admin/departments` | Academic & administrative departments |
-| `GET` | `/admin/service-requests` | Student affairs requests |
-| `POST` | `/admin/service-requests/:id/resolve` | Mark service request resolved with official notes |
-
----
-
-### 4.6 AI Study Assistant (`src/services/aiService.ts`)
-
-| HTTP Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/ai/documents` | List of indexed lecture notes and PDFs |
-| `POST` | `/ai/documents/upload` | Upload PDF for semantic embedding (`multipart/form-data`) |
-| `GET` | `/ai/documents/:id/chat` | Chat history for document |
-| `POST` | `/ai/documents/:id/chat` | Send question to AI tutor (grounded RAG context) |
-
----
-
-## 5. How to Add or Modify Endpoints
-
-All service methods are clean and concise. For example, to add an endpoint to `studentService.ts`:
-
-```typescript
-// in src/services/studentService.ts
-export const studentService = {
-  // Existing methods...
-
-  /** Example: Download an academic transcript PDF */
-  async downloadTranscriptPdf(): Promise<Blob> {
-    return apiClient.get('/student/transcript/download', undefined, {
-      headers: { Accept: 'application/pdf' }
-    });
-  }
-};
-```
-
-And in your component:
-```tsx
-import { studentService } from '../../services/studentService';
-
-const handleDownload = async () => {
-  try {
-    const blob = await studentService.downloadTranscriptPdf();
-    const url = window.URL.createObjectURL(blob);
-    window.open(url);
-  } catch (err: any) {
-    showToast('Download Failed', err.message, 'error');
-  }
-};
-```
-
----
-
-## 6. Testing & Development Summary
-
-- When `VITE_USE_MOCK_API=true`: The application runs completely in browser memory with full instant data for all 106 screens.
-- When `VITE_USE_MOCK_API=false`: The application sends real HTTP requests with JWT tokens to `VITE_API_BASE_URL`.
-- Build verification: Run `npm run build` anytime to verify 100% type safety and zero compilation errors.
+Standard HTTP status codes supported:
+- `200 OK`: Request succeeded.
+- `201 Created`: Resource successfully created.
+- `400 Bad Request`: Payload validation failed (e.g. invalid student code or missing fields).
+- `401 Unauthorized`: Token missing or expired. Automatically clears token and dispatches session expiry.
+- `403 Forbidden`: Authenticated user does not possess the required institutional role/permission.
+- `404 Not Found`: Resource does not exist.
+- `409 Conflict`: Business rule violation (e.g. prerequisite not met, schedule clash, course full).
+- `408 Request Timeout`: Backend took longer than `VITE_API_TIMEOUT_MS`.
+- `500 Internal Server Error`: Backend exception.

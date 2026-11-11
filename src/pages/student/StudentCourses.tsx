@@ -1,5 +1,16 @@
+/**
+ * Screen 11: Enrolled Courses
+ * 
+ * BACKEND INTEGRATION POINT:
+ * - List Courses: `studentApi.getMyCourses()` in `src/api/student.api.ts` (GET /student/courses)
+ * - Drop Course: `studentApi.dropCourse({ courseId })` (DELETE /student/courses/:id)
+ * - Or consume via `useAcademic()` hook in `src/context/AcademicContext.tsx`
+ */
+
 import React, { useEffect, useState } from 'react';
 import { fakeApi } from '../../services/fakeApi';
+// When ready to connect dedicated API:
+// import { studentApi } from '../../api/student.api';
 import { useAuth } from '../../context/AuthContext';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';

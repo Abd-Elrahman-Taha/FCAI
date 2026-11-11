@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AppProviders, useAuth } from './context';
 import { AppShell } from './components/layout/AppShell';
 
 // Authentication & Account (1-7)
@@ -420,9 +420,9 @@ const RouterView: React.FC = () => {
 
 export function App() {
   return (
-    <AuthProvider>
+    <AppProviders>
       <RouterView />
-    </AuthProvider>
+    </AppProviders>
   );
 }
 
