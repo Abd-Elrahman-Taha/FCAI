@@ -30,13 +30,13 @@ export const StudentReceipt: React.FC<{ receiptId?: string }> = ({ receiptId }) 
               className="btn btn-secondary"
               onClick={() => window.print()}
             >
-              <Icon name="printer" /> Print Official Receipt
+              <Icon name="printer" /> Print Receipt
             </button>
             <a
               href="#/student/fees"
               className="btn btn-primary"
             >
-              <Icon name="arrowLeft" /> Back to Financial Dashboard
+              <Icon name="arrowLeft" /> Back to Fees
             </a>
           </div>
         }
@@ -45,25 +45,24 @@ export const StudentReceipt: React.FC<{ receiptId?: string }> = ({ receiptId }) 
       {/* Printable Receipt Certificate Layout */}
       <div className="row" style={{ justifyContent: 'center' }}>
         <div
-          className="card card-pad"
+          className="card card-pad receipt-box"
           style={{
             maxWidth: '680px',
             width: '100%',
-            background: '#fff',
             boxShadow: 'var(--sh-lg)',
-            border: '2px solid var(--border-strong)',
+            border: '1px solid var(--border)',
             padding: '36px'
           }}
         >
           {/* Official University Header */}
-          <div className="row-between mb-6 pb-6" style={{ borderBottom: '2px solid var(--navy-800)' }}>
+          <div className="row-between mb-6 pb-6" style={{ borderBottom: '2px solid var(--border)' }}>
             <div className="row gap-3">
               <FCAILogo size={52} />
               <div>
-                <b style={{ fontSize: '18px', color: 'var(--navy-950)', display: 'block' }}>
+                <b style={{ fontSize: '18px', display: 'block', color: 'var(--text-primary)' }}>
                   Beni Suef University · FCAI
                 </b>
-                <span style={{ fontSize: '12.5px', color: 'var(--gray-700)', fontWeight: 500 }}>
+                <span style={{ fontSize: '12.5px', color: 'var(--text-muted)', fontWeight: 500 }}>
                   Faculty of Computers and Artificial Intelligence
                 </span>
                 <span className="text-xs muted block">Comptroller &amp; Financial Affairs Unit</span>
@@ -71,7 +70,9 @@ export const StudentReceipt: React.FC<{ receiptId?: string }> = ({ receiptId }) 
             </div>
 
             <div className="text-right">
-              <span className="badge b-success no-dot mb-1">Electronic Payment Reconciled</span>
+              <span className="badge b-primary no-dot mb-1" style={{ fontWeight: 650 }}>
+                Electronic Settlement Reconciled
+              </span>
               <div className="text-xs muted">Receipt No:</div>
               <b className="mono text-sm">{receipt.receiptNumber}</b>
             </div>
@@ -106,7 +107,7 @@ export const StudentReceipt: React.FC<{ receiptId?: string }> = ({ receiptId }) 
               <tr>
                 <td>
                   <b>{receipt.feeType}</b>
-                  <div className="text-xs muted">Electronic settlement collected through {receipt.paymentMethod}</div>
+                  <div className="text-xs muted">Electronic settlement collected via {receipt.paymentMethod}</div>
                 </td>
                 <td>{receipt.currency}</td>
                 <td className="text-right">
@@ -116,7 +117,9 @@ export const StudentReceipt: React.FC<{ receiptId?: string }> = ({ receiptId }) 
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={2} className="text-right fw-7" style={{ background: 'var(--surface-2)' }}>Total Reconciled Paid:</td>
+                <td colSpan={2} className="text-right fw-7" style={{ background: 'var(--surface-2)' }}>
+                  Total Reconciled Paid:
+                </td>
                 <td className="text-right fw-7 text-primary" style={{ background: 'var(--surface-2)', fontSize: '16px' }}>
                   {receipt.currency} {receipt.amount.toLocaleString()}
                 </td>
@@ -129,7 +132,7 @@ export const StudentReceipt: React.FC<{ receiptId?: string }> = ({ receiptId }) 
             <div>
               <span>Settlement Date: <b>{receipt.paymentDate}</b></span>
               <br />
-              <span>Provider: <b>{receipt.paymentMethod}</b></span>
+              <span>Gateway Provider: <b>{receipt.paymentMethod}</b></span>
             </div>
             <div className="text-right">
               <span className="badge b-navy no-dot mb-1">Official Digital Signature</span>

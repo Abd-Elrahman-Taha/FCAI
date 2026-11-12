@@ -59,7 +59,7 @@ export const StudentProfile: React.FC = () => {
         crumbs={[['Student Portal', '#/student/dashboard'], ['My Profile']]}
         actions={
           !isEditing ? (
-            <button type="button" className="btn btn-secondary" onClick={() => setIsEditing(true)}>
+            <button type="button" className="btn btn-primary" onClick={() => setIsEditing(true)}>
               <Icon name="edit" size="sm" /> Edit Personal Information
             </button>
           ) : (

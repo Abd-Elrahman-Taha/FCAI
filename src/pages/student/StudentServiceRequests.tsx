@@ -152,7 +152,7 @@ export const StudentServiceRequests: React.FC = () => {
                   <td>
                     <button
                       type="button"
-                      className="btn btn-secondary btn-sm"
+                      className="btn btn-primary btn-sm"
                       onClick={() => setSelectedRequest(req)}
                     >
                       Track Ticket

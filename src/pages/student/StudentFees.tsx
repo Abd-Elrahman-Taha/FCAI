@@ -54,7 +54,7 @@ export const StudentFees: React.FC = () => {
     <div>
       <PageHead
         title="Fees &amp; Financial Dashboard"
-        desc="Tuition schedules, institutional fee invoices, and official Fawry payment reconciliation."
+        desc="Tuition invoices, electronic settlements, and official digital receipts."
         crumbs={[['Student Portal', '#/student/dashboard'], ['Fees & Payments']]}
       />
 
@@ -62,7 +62,7 @@ export const StudentFees: React.FC = () => {
       <div className="grid g-3 mb-6">
         <div className="card kpi">
           <div className="kpi-top">
-            <span className="kpi-label">Total Outstanding Fees</span>
+            <span className="kpi-label">Outstanding Balance</span>
             <span className="kpi-ico danger"><Icon name="wallet" /></span>
           </div>
           <div className="kpi-value text-danger">EGP {unpaidTotal.toLocaleString()}</div>
@@ -71,85 +71,99 @@ export const StudentFees: React.FC = () => {
 
         <div className="card kpi">
           <div className="kpi-top">
-            <span className="kpi-label">Total Reconciled &amp; Paid</span>
-            <span className="kpi-ico success"><Icon name="checkCircle" /></span>
+            <span className="kpi-label">Total Settled</span>
+            <span className="kpi-ico info"><Icon name="checkCircle" /></span>
           </div>
-          <div className="kpi-value text-success">EGP {paidTotal.toLocaleString()}</div>
-          <div className="kpi-meta">Lifetime settled university fees</div>
+          <div className="kpi-value">EGP {paidTotal.toLocaleString()}</div>
+          <div className="kpi-meta"><span className="text-xs muted">Reconciled electronic payments</span></div>
         </div>
 
         <div className="card kpi">
           <div className="kpi-top">
-            <span className="kpi-label">Active Term Invoices</span>
+            <span className="kpi-label">Active Term Dues</span>
             <span className="kpi-ico info"><Icon name="receipt" /></span>
           </div>
           <div className="kpi-value">EGP {currentSemesterTotal.toLocaleString()}</div>
-          <div className="kpi-meta">Fall 2026 Academic Term</div>
+          <div className="kpi-meta"><span className="text-xs muted">Fall 2026 Academic Term</span></div>
         </div>
       </div>
 
-      {/* Official Fawry Payment Notice */}
-      <div className="alert alert-info mb-6">
-        <Icon name="info" />
-        <div>
-          <b>Authorized Electronic Payment Gateway:</b>
-          <p>
-            All university tuition fees are collected electronically via <b>Fawry Electronic Payment Services</b>. Payments are validated in real-time with zero manual paper receipts required. Partial payments are strictly prohibited by university regulations.
-          </p>
+      {/* Official Fawry Payment Notice - Compact */}
+      <div className="alert alert-info mb-6" style={{ padding: '12px 16px' }}>
+        <Icon name="info" size="sm" />
+        <div className="text-xs">
+          <b>Fawry Electronic Gateway:</b> Tuition fees are reconciled electronically in real-time. Partial payments are prohibited by university regulations.
         </div>
       </div>
 
-      {/* Fee Invoices Table */}
+      {/* Simplified, Clean Fee Invoices Table */}
       <div className="card">
         <div className="card-head">
           <div>
-            <h3><Icon name="receipt" size="sm" /> Student Invoices &amp; Transaction History</h3>
-            <p>Inspect fee breakdowns, discounts, and digital printable receipts.</p>
+            <h3><Icon name="receipt" size="sm" /> Invoices &amp; Receipts</h3>
+            <p>Review invoice details, applied scholarships, and official receipts.</p>
           </div>
         </div>
         <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
-                <th>Invoice Type</th>
-                <th>Academic Term</th>
-                <th>Original Amount</th>
-                <th>Excellence Discount</th>
-                <th>Final Due Amount</th>
-                <th>Due Date</th>
-                <th>Status</th>
-                <th>Action</th>
+                <th style={{ minWidth: '240px' }}>Invoice Description</th>
+                <th style={{ width: '160px' }}>Amount</th>
+                <th style={{ width: '150px' }}>Date</th>
+                <th style={{ width: '110px' }}>Status</th>
+                <th style={{ width: '150px' }} className="text-right">Action</th>
               </tr>
             </thead>
             <tbody>
               {fees.map((fee: StudentFee) => (
                 <tr key={fee.id}>
-                  <td><b>{fee.feeType}</b></td>
-                  <td><span className="badge b-info no-dot">{fee.semester}</span></td>
-                  <td>EGP {fee.originalAmount.toLocaleString()}</td>
+                  {/* Invoice Description & Term */}
                   <td>
-                    {fee.discount > 0 ? (
-                      <span className="badge b-success no-dot">- EGP {fee.discount.toLocaleString()}</span>
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
+                    <div className="col gap-1">
+                      <b style={{ fontSize: '14px' }}>{fee.feeType}</b>
+                      <span className="text-xs muted">{fee.semester} · {fee.academicYear}</span>
+                    </div>
                   </td>
-                  <td><b className="text-primary">EGP {fee.finalAmount.toLocaleString()}</b></td>
-                  <td>{fee.dueDate}</td>
+
+                  {/* Net Amount with Discount Pill if applicable */}
+                  <td>
+                    <div className="col gap-1">
+                      <b className="text-base" style={{ color: fee.status === 'Unpaid' ? '#ef4444' : 'var(--text-primary)' }}>
+                        EGP {fee.finalAmount.toLocaleString()}
+                      </b>
+                      {fee.discount > 0 && (
+                        <span className="text-xs" style={{ color: '#0ea5e9' }}>
+                          Saved EGP {fee.discount.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Date (Settled or Due) */}
+                  <td>
+                    <div className="text-xs">
+                      <span className="muted block">{fee.status === 'Paid' ? 'Paid on' : 'Due date'}</span>
+                      <b>{fee.status === 'Paid' ? (fee.paymentDate || fee.dueDate) : fee.dueDate}</b>
+                    </div>
+                  </td>
+
+                  {/* Clean Status Badge (Zero Green) */}
                   <td>
                     <span
-                      className={`badge ${
+                      className={`badge no-dot ${
                         fee.status === 'Paid'
-                          ? 'b-success'
-                          : fee.status === 'Unpaid'
-                          ? 'b-danger'
-                          : 'b-neutral'
+                          ? 'b-primary'
+                          : 'b-danger'
                       }`}
+                      style={{ fontWeight: 650 }}
                     >
                       {fee.status}
                     </span>
                   </td>
-                  <td>
+
+                  {/* Clean Action Button */}
+                  <td className="text-right">
                     {fee.status === 'Unpaid' ? (
                       <button
                         type="button"
@@ -159,7 +173,7 @@ export const StudentFees: React.FC = () => {
                           setPaymentState('pending');
                         }}
                       >
-                        <Icon name="creditCard" size="sm" /> Pay Now via Fawry
+                        <Icon name="creditCard" size="sm" /> Pay Fawry
                       </button>
                     ) : (
                       <a
@@ -198,7 +212,7 @@ export const StudentFees: React.FC = () => {
             ) : (
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-primary"
                 onClick={() => setPayingFee(null)}
                 disabled={paymentState === 'processing'}
               >
@@ -251,7 +265,7 @@ export const StudentFees: React.FC = () => {
 
             {paymentState === 'paid' && (
               <div className="state py-4">
-                <div className="state-art success mb-2"><Icon name="checkCircle" size="xl" /></div>
+                <div className="state-art info mb-2"><Icon name="checkCircle" size="xl" /></div>
                 <h3>Payment Successfully Verified!</h3>
                 <p className="text-xs muted">
                   Fawry Gateway confirmed settlement. Transaction Ref: <b className="mono text-primary">{transactionRef}</b>

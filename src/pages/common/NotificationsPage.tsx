@@ -77,7 +77,7 @@ export const NotificationsPage: React.FC = () => {
         crumbs={[['Portal Dashboard', '#/student/dashboard'], ['Notifications']]}
         actions={
           unreadCount > 0 ? (
-            <button className="btn btn-secondary btn-sm" onClick={handleMarkAll}>
+            <button className="btn btn-primary btn-sm" onClick={handleMarkAll}>
               <Icon name="checkCircle" size="sm" /> Mark All as Read ({unreadCount})
             </button>
           ) : undefined

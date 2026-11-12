@@ -24,11 +24,11 @@ export const StudentGrades: React.FC = () => {
     <div>
       <PageHead
         title="Official Grades &amp; GPA"
-        desc="Dean-approved course grades, component marks breakdown, and cumulative Grade Point Average."
+        desc="Dean-approved semester performance, assessment breakdown, and cumulative GPA."
         crumbs={[['Student Portal', '#/student/dashboard'], ['Grades & GPA']]}
       />
 
-      {/* GPA KPI Row */}
+      {/* GPA KPI Row - Balanced & Clean */}
       <div className="grid g-3 mb-6">
         <div className="card kpi">
           <div className="kpi-top">
@@ -42,29 +42,29 @@ export const StudentGrades: React.FC = () => {
         <div className="card kpi">
           <div className="kpi-top">
             <span className="kpi-label">Semester GPA ({term})</span>
-            <span className="kpi-ico success"><Icon name="trendingUp" /></span>
+            <span className="kpi-ico info"><Icon name="trendingUp" /></span>
           </div>
           <div className="kpi-value">{currentSemesterGpa} <small>/ 4.00</small></div>
-          <div className="kpi-meta"><span className="trend-up">Calculated on published courses</span></div>
+          <div className="kpi-meta"><span className="text-xs muted">Based on published courses</span></div>
         </div>
 
         <div className="card kpi">
           <div className="kpi-top">
-            <span className="kpi-label">Active Semester</span>
+            <span className="kpi-label">Active Term</span>
             <span className="kpi-ico info"><Icon name="calendarCheck" /></span>
           </div>
           <div className="kpi-value">Fall 2026</div>
-          <div className="kpi-meta">Term Week 4 · Regular Academic Year</div>
+          <div className="kpi-meta">Regular Academic Year · Level 3</div>
         </div>
       </div>
 
-      {/* Semester Filter */}
+      {/* Controls & Filter */}
       <div className="toolbar row-between mb-4">
-        <div className="row gap-2">
-          <span className="text-xs muted">Select Semester:</span>
+        <div className="row gap-2" style={{ alignItems: 'center' }}>
+          <span className="text-xs muted">Semester:</span>
           <select
             className="select"
-            style={{ width: '220px', height: '36px' }}
+            style={{ width: '200px', height: '36px' }}
             value={term}
             onChange={e => setTerm(e.target.value)}
           >
@@ -74,45 +74,85 @@ export const StudentGrades: React.FC = () => {
           </select>
         </div>
         <span className="text-xs muted">
-          Only Dean-approved and published grade packages are visible to students.
+          Dean-approved records
         </span>
       </div>
 
-      {/* Grades Table with Component Marks */}
+      {/* Simplified, Eye-Comfortable Grades Table */}
       <div className="card">
         <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
-                <th>Course Code</th>
-                <th>Course Title</th>
-                <th>CH</th>
-                <th>Grade Component Breakdown</th>
-                <th>Total Marks</th>
-                <th>Letter</th>
-                <th>Grade Point</th>
-                <th>Status</th>
+                <th style={{ minWidth: '220px' }}>Course</th>
+                <th>Assessment Breakdown</th>
+                <th style={{ width: '170px' }}>Total &amp; Grade</th>
+                <th style={{ width: '110px' }}>Status</th>
               </tr>
             </thead>
             <tbody>
               {courses.map((cg: CourseGrade) => (
                 <tr key={cg.courseCode}>
-                  <td><span className="badge b-navy no-dot">{cg.courseCode}</span></td>
-                  <td><b>{cg.courseName}</b></td>
-                  <td>{cg.creditHours} CH</td>
+                  {/* Course Details - Unified */}
                   <td>
-                    <div className="row gap-2 wrap text-xs">
-                      {cg.components.map((comp, idx) => (
-                        <span key={idx} className="tag">
-                          {comp.name}: <b>{comp.obtained}/{comp.max}</b>
-                        </span>
-                      ))}
+                    <div className="col gap-1">
+                      <div className="row gap-2" style={{ alignItems: 'center' }}>
+                        <span className="mono fw-7 text-xs text-primary">{cg.courseCode}</span>
+                        <b style={{ fontSize: '14px' }}>{cg.courseName}</b>
+                      </div>
+                      <span className="text-xs muted">{cg.creditHours} Credit Hours</span>
                     </div>
                   </td>
-                  <td><b className="text-lg">{cg.totalMarks}</b> <small className="muted">/ 100</small></td>
-                  <td><span className="badge b-success no-dot">{cg.letterGrade}</span></td>
-                  <td><b>{cg.gradePoints.toFixed(1)}</b></td>
-                  <td><span className="badge b-success no-dot">Published</span></td>
+
+                  {/* Assessment Breakdown - Concise & Eye-Comfortable */}
+                  <td>
+                    <div className="row gap-1 wrap">
+                      {cg.components.map((comp, idx) => {
+                        const label = comp.name
+                          .replace('Coursework / Assignments', 'Coursework')
+                          .replace('Final Examination', 'Final')
+                          .replace('Final Exam', 'Final')
+                          .replace('Practical Lab', 'Lab')
+                          .replace('Practical', 'Lab');
+                        return (
+                          <span key={idx} className="tag">
+                            {label}: <b>{comp.obtained}/{comp.max}</b>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </td>
+
+                  {/* Total Marks & Letter Grade - Integrated */}
+                  <td>
+                    <div className="row gap-2" style={{ alignItems: 'baseline' }}>
+                      <b className="text-base">{cg.totalMarks}</b>
+                      <small className="muted">/100</small>
+                      <span className="badge b-primary no-dot" style={{ fontWeight: 700 }}>
+                        {cg.letterGrade}
+                      </span>
+                      <span className="text-xs muted mono">({cg.gradePoints.toFixed(1)})</span>
+                    </div>
+                  </td>
+
+                  {/* Subtle, Calm Status Indicator */}
+                  <td>
+                    <span
+                      className="row gap-1 text-xs"
+                      style={{ alignItems: 'center', color: 'var(--text-muted)' }}
+                    >
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          background: '#38bdf8',
+                          display: 'inline-block'
+                        }}
+                      />
+                      Published
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -861,12 +861,36 @@ svg.icon ellipse {
 .progress-fill { height: 100%; background: var(--navy-800); border-radius: 99px; transition: width 0.3s ease; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.tag { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border-radius: 6px; font-size: 12px; font-weight: 600; background: var(--blue-50); color: var(--navy-800); border: 1px solid var(--blue-100); white-space: nowrap; }
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+.tag b {
+  color: #0f172a;
+  font-weight: 650;
+}
 [data-theme="dark"] .tag,
 .dark .tag {
-  background: #C1E8FF !important;
-  color: #021024 !important;
-  font-weight: 750 !important;
+  background: rgba(15, 23, 42, 0.65) !important;
+  color: #94a3b8 !important;
+  border: 1px solid rgba(148, 163, 184, 0.2) !important;
+  font-weight: 500 !important;
+}
+[data-theme="dark"] .tag b,
+.dark .tag b {
+  color: #38bdf8 !important;
+  font-weight: 650 !important;
 }
 
 
@@ -1002,32 +1026,54 @@ svg.icon ellipse {
 .progress.danger > span { background: linear-gradient(90deg, #ef6b6b, var(--danger-600)); }
 .progress.thin { height: 6px; }
 .progress.thick { height: 12px; }
-.ring { --p: 75; --c: var(--navy-800); --size: 120px; --th: 12px; width: var(--size); height: var(--size); border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--c) calc(var(--p) * 1%), var(--gray-150) 0); position: relative; flex: none; }
-.ring::before { content: ''; position: absolute; inset: var(--th); border-radius: 50%; background: #ffffff; }
+.ring {
+  --p: 75;
+  --c: #00e5ff;
+  --size: 120px;
+  --th: 12px;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(var(--c) calc(var(--p) * 1%), #e2e8f0 0);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.22);
+  position: relative;
+  flex: none;
+}
+.ring::before {
+  content: '';
+  position: absolute;
+  inset: var(--th);
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: inset 0 1px 4px rgba(15, 23, 42, 0.06);
+}
 .ring > * { position: relative; text-align: center; }
 .ring b { font-size: 24px; font-weight: 800; letter-spacing: -.02em; display: block; line-height: 1; color: #021024 !important; }
-.ring span { font-size: 11.5px; color: #334155 !important; font-weight: 700; display: block; margin-top: 2px; }
+.ring span { font-size: 11.5px; color: #475569 !important; font-weight: 700; display: block; margin-top: 2px; }
 
 [data-theme="dark"] .ring,
 .dark .ring {
-  background: conic-gradient(#38bdf8 calc(var(--p) * 1%), rgba(193, 232, 255, 0.15) 0) !important;
+  background: conic-gradient(#00e5ff calc(var(--p) * 1%), rgba(56, 189, 248, 0.14) 0) !important;
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.25);
 }
 [data-theme="dark"] .ring::before,
 .dark .ring::before {
-  background: #ffffff !important;
-  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.12);
+  background: #061326 !important;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 [data-theme="dark"] .ring b,
 [data-theme="dark"] .card .ring b,
 .dark .ring b,
 .dark .card .ring b {
-  color: #021024 !important;
+  color: #ffffff !important;
 }
 [data-theme="dark"] .ring span,
 [data-theme="dark"] .card .ring span,
 .dark .ring span,
 .dark .card .ring span {
-  color: #334155 !important;
+  color: #94a3b8 !important;
   font-weight: 700 !important;
 }
 
@@ -2170,27 +2216,43 @@ svg.icon ellipse {
 .dark .btn-secondary,
 .dark a.btn-secondary,
 .dark button.btn-secondary {
-  background: #dceaf7 !important;
-  color: #021024 !important;
-  font-weight: 700 !important;
-  border: 1px solid #9cbddc !important;
+  background: rgba(15, 23, 42, 0.75) !important;
+  background-color: rgba(15, 23, 42, 0.75) !important;
+  color: #f1f5f9 !important;
+  font-weight: 600 !important;
+  border: 1px solid rgba(56, 189, 248, 0.28) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
 }
 [data-theme="dark"] .btn-secondary *,
-.dark .btn-secondary * {
-  color: #021024 !important;
-  stroke: #021024 !important;
+[data-theme="dark"] a.btn-secondary *,
+[data-theme="dark"] button.btn-secondary *,
+.dark .btn-secondary *,
+.dark a.btn-secondary *,
+.dark button.btn-secondary * {
+  color: #f1f5f9 !important;
+  stroke: #f1f5f9 !important;
   fill: none !important;
 }
 [data-theme="dark"] .btn-secondary:hover,
-.dark .btn-secondary:hover {
-  background: #ffffff !important;
-  color: #000000 !important;
-  border-color: #C1E8FF !important;
+[data-theme="dark"] a.btn-secondary:hover,
+[data-theme="dark"] button.btn-secondary:hover,
+.dark .btn-secondary:hover,
+.dark a.btn-secondary:hover,
+.dark button.btn-secondary:hover {
+  background: rgba(30, 41, 59, 0.95) !important;
+  background-color: rgba(30, 41, 59, 0.95) !important;
+  color: #38bdf8 !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.25) !important;
 }
 [data-theme="dark"] .btn-secondary:hover *,
-.dark .btn-secondary:hover * {
-  color: #000000 !important;
-  stroke: #000000 !important;
+[data-theme="dark"] a.btn-secondary:hover *,
+[data-theme="dark"] button.btn-secondary:hover *,
+.dark .btn-secondary:hover *,
+.dark a.btn-secondary:hover *,
+.dark button.btn-secondary:hover * {
+  color: #38bdf8 !important;
+  stroke: #38bdf8 !important;
 }
 
 [data-theme="dark"] .btn-soft,
@@ -2199,9 +2261,10 @@ svg.icon ellipse {
 .dark .btn-white,
 [data-theme="dark"] .btn-light,
 .dark .btn-light {
-  background: #d8efff !important;
-  color: #021024 !important;
-  font-weight: 750 !important;
+  background: rgba(30, 41, 59, 0.75) !important;
+  color: #e2e8f0 !important;
+  font-weight: 600 !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
 }
 [data-theme="dark"] .btn-soft *,
 .dark .btn-soft *,
@@ -2209,7 +2272,8 @@ svg.icon ellipse {
 .dark .btn-white *,
 [data-theme="dark"] .btn-light *,
 .dark .btn-light * {
-  color: #021024 !important;
+  color: #e2e8f0 !important;
+  stroke: #e2e8f0 !important;
 }
 
 [data-theme="dark"] .badge-ice,
@@ -3517,6 +3581,36 @@ svg.icon ellipse {
   }
   100% {
     opacity: 0.25;
+  }
+}
+
+/* ---------- Official Digital Receipt Box ---------- */
+.receipt-box {
+  background: #ffffff;
+  color: var(--text-primary);
+  border-radius: 12px;
+}
+[data-theme="dark"] .receipt-box,
+.dark .receipt-box {
+  background: rgba(15, 23, 42, 0.95) !important;
+  color: #f8fafc !important;
+  border-color: rgba(56, 189, 248, 0.28) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .receipt-box {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #000000 !important;
+    box-shadow: none !important;
+  }
+  .topbar, .sidebar, .bottom-nav, .btn, .page-head {
+    display: none !important;
   }
 }
 
