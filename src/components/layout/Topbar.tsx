@@ -16,6 +16,7 @@ export const Topbar: React.FC = () => {
     markAllNotificationsRead,
     toggleSidebar,
     isSidebarCollapsed,
+    isMobileMenuOpen,
     toggleMobileMenu,
     theme,
     toggleTheme
@@ -73,20 +74,25 @@ export const Topbar: React.FC = () => {
       {/* Desktop Brand Pill on Big Screens — ONLY appears when sidebar is collapsed (closed) */}
     
 
-      {/* Mobile & Tablet Brand Identity matching HomePage */}
-      <a href="#/home" className="mobile-brand-pill lg:hidden cursor-pointer group" style={{ textDecoration: 'none' }} title="Go to FCAI BSU Home">
-        <div className="relative flex-shrink-0">
-         
-          <div className="absolute -inset-1 rounded-full bg-cyan-400/25 blur-sm pointer-events-none" />
+      {/* Brand Identity in Topbar:
+          - Small screens (< 1024px): Shows Logo + "FCAI BSU"
+          - Big screens (>= 1024px): Logo NEVER appears in topbar; "FCAI BSU" disappears when sidebar is open and appears when sidebar is collapsed */}
+      <a
+        href="#/home"
+        className={`topbar-brand-link ${isSidebarCollapsed ? 'sidebar-is-collapsed' : 'sidebar-is-open'} cursor-pointer group flex-shrink-0`}
+        style={{ textDecoration: 'none' }}
+        title="Go to FCAI BSU Home"
+      >
+        <div className="topbar-mobile-only-logo relative flex-shrink-0">
+          <FCAILogo size={34} />
         </div>
-        {isSidebarCollapsed && (<div className="flex items-center gap-1.5 min-w-0">
-          <span className="mobile-brand-name font-extrabold text-[15px] tracking-tight text-white whitespace-nowrap">
-            FCAI BSU
-          </span>
-          <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 whitespace-nowrap">
-            2026/2027
-          </span>
-        </div>)}
+        {!isMobileMenuOpen && (
+          <div className="topbar-brand-text flex items-center gap-1.5 min-w-0">
+            <span className="mobile-brand-name font-extrabold text-[14px] sm:text-[15px] tracking-tight text-slate-900 dark:text-white whitespace-nowrap">
+              FCAI BSU
+            </span>
+          </div>
+        )}
       </a>
 
       {/* Global Search */}
@@ -110,11 +116,11 @@ export const Topbar: React.FC = () => {
         {/* Quick Home Landing Link */}
         <a
           href="#/home"
-          className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-800 dark:text-white hover:text-cyan-600 dark:hover:text-cyan-300 bg-slate-100 dark:bg-slate-900/60 hover:bg-slate-200 dark:hover:bg-slate-800/80 border border-slate-300 dark:border-slate-700/60 transition-all mr-1"
+          className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-800 dark:text-white hover:text-white dark:hover:text-cyan-300 bg-slate-100 dark:bg-slate-900/60 hover:bg-slate-200 dark:hover:bg-slate-800/80 border border-slate-300 dark:border-slate-700/60 transition-all mr-1"
           title="Return to Home Landing Page"
         >
-          <Icon name="home" size="sm" className="text-cyan-500 dark:text-cyan-400" />
-          <span>Home</span>
+          <Icon name="home" size="sm" className="text-black dark:text-white" />
+          <span className="text-black dark:text-white">Home</span>
         </a>
 
         {/* Theme Mode Toggle (Light / Dark) */}

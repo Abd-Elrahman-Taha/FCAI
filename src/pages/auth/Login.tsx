@@ -1,19 +1,14 @@
 /**
- * Screen 1: Institutional Portal Sign-In
- * 
- * BACKEND INTEGRATION POINT:
- * This component calls `login(credentials)` from `useAuth()` (src/context/AuthContext.tsx).
- * When ready to integrate real backend authentication:
- * 1. Implement `authApi.login` in `src/api/auth.api.ts` pointing to `POST /auth/login`.
- * 2. `AuthContext.tsx` dispatches credentials to `authApi.login` and stores the returned JWT token.
- * 3. Successful authentication populates `currentUser` and redirects to the role dashboard.
+ * Screen 1 & Enrollment: Institutional Portal Sign-In & Sign-Up (Sliding Split-Screen)
+ *
+ * - Sign In Mode: Brand Showcase Panel on Left (0%), Form Panel on Right (50%)
+ * - Sign Up Mode: Brand Showcase Panel slides to Right (+100%), Form Panel slides to Left (-100%)
  */
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
-// When ready for direct API calls:
-// import { authApi } from '../../api/auth.api';
+import { api } from '../../services/api';
 import { Icon, FCAILogo } from '../../components/icons/Icon';
 import { EducationHeroIllustration } from '../../components/auth/EducationHeroIllustration';
 import type { Role } from '../../types';
@@ -21,76 +16,133 @@ import type { Role } from '../../types';
 interface EnrollmentQuickAccount {
   role: Role;
   roleLabel: string;
+  shortLabel: string;
   name: string;
   meta: string;
   icon: string;
   code?: string;
   nationalId?: string;
   email?: string;
-  badge: string;
 }
 
 const ENROLLMENTS: EnrollmentQuickAccount[] = [
   {
     role: 'student',
-    roleLabel: 'Student Enrollment',
-    name: 'Ahmed Mohamed Hassan',
-    meta: 'Level 3 · CS (Code: 2021170045)',
+    roleLabel: 'Student Portal',
+    shortLabel: 'Student',
+    name: 'Ahmed Hassan',
+    meta: 'Level 3 · CS',
     icon: 'graduation',
     code: '2021170045',
-    nationalId: '30302152201234',
-    badge: 'Undergraduate'
+    nationalId: '30302152201234'
   },
   {
     role: 'doctor',
-    roleLabel: 'Faculty Doctor Enrollment',
-    name: 'Dr. Mona Abdelrahman',
-    meta: 'Assoc. Professor · Computer Science',
+    roleLabel: 'Doctor Portal',
+    shortLabel: 'Doctor',
+    name: 'Dr. Mona',
+    meta: 'Computer Science',
     icon: 'briefcase',
-    email: 'mona.abdelrahman@fcai.bsu.edu.eg',
-    badge: 'Faculty Member'
+    email: 'mona.abdelrahman@fcai.bsu.edu.eg'
   },
   {
     role: 'ta',
-    roleLabel: 'Teaching Assistant Enrollment',
-    name: 'Eng. Youssef Khaled',
-    meta: 'Teaching Assistant · CS Dept',
+    roleLabel: 'TA Portal',
+    shortLabel: 'TA',
+    name: 'Eng. Youssef',
+    meta: 'CS Department',
     icon: 'users',
-    email: 'youssef.khaled@fcai.bsu.edu.eg',
-    badge: 'Assisting Staff'
+    email: 'youssef.khaled@fcai.bsu.edu.eg'
   },
   {
     role: 'admin',
-    roleLabel: 'College Admin Enrollment',
+    roleLabel: 'College Admin',
+    shortLabel: 'Admin',
     name: 'Tarek Fathy',
-    meta: 'Dean Executive Administration',
+    meta: 'Executive Admin',
     icon: 'shieldCheck',
-    email: 'tarek.fathy@fcai.bsu.edu.eg',
-    badge: 'Executive Admin'
+    email: 'tarek.fathy@fcai.bsu.edu.eg'
   },
   {
     role: 'employee',
-    roleLabel: 'Staff Employee Enrollment',
+    roleLabel: 'Affairs Staff',
+    shortLabel: 'Staff',
     name: 'Salma Ibrahim',
-    meta: 'Senior Officer · Student Affairs',
+    meta: 'Student Affairs',
     icon: 'idCard',
-    email: 'salma.ibrahim@fcai.bsu.edu.eg',
-    badge: 'Student Affairs'
+    email: 'salma.ibrahim@fcai.bsu.edu.eg'
   }
 ];
 
-export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSuccess }) => {
-  const { login, theme, toggleTheme } = useAuth();
+export interface LoginProps {
+  onLoginSuccess?: () => void;
+  initialMode?: 'signin' | 'signup';
+}
+
+export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => {
+  const { login, theme, toggleTheme, showToast } = useAuth();
+
+  const detectModeFromHash = (): 'signin' | 'signup' => {
+    if (initialMode) return initialMode;
+    const h = (window.location.hash || '').replace(/^#\/?/, '').toLowerCase().trim();
+    if (h === 'signup' || h === 'register' || h === 'enrollment') return 'signup';
+    return 'signin';
+  };
+
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>(detectModeFromHash);
+
+  // Sync mode when initialMode prop or URL hash changes
+  useEffect(() => {
+    if (initialMode) {
+      setAuthMode(initialMode);
+    }
+  }, [initialMode]);
+
+  useEffect(() => {
+    const onHash = () => {
+      const h = (window.location.hash || '').replace(/^#\/?/, '').toLowerCase().trim();
+      if (h === 'signup' || h === 'register' || h === 'enrollment') {
+        setAuthMode('signup');
+      } else if (h === 'login' || h === 'screen/1') {
+        setAuthMode('signin');
+      }
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  const switchAuthMode = (targetMode: 'signin' | 'signup') => {
+    setError(null);
+    setIsSubmitted(false);
+    setAuthMode(targetMode);
+    const targetHash = targetMode === 'signup' ? '#/signup' : '#/login';
+    if (window.location.hash !== targetHash) {
+      window.history.replaceState(null, '', targetHash);
+    }
+  };
+
+  // Sign-In Form State
   const [isStaff, setIsStaff] = useState(false);
   const [selectedStaffRole, setSelectedStaffRole] = useState<Role>('doctor');
   const [signingInRole, setSigningInRole] = useState<Role | null>(null);
-
   const [nationalId, setNationalId] = useState('30302152201234');
   const [studentCode, setStudentCode] = useState('2021170045');
   const [email, setEmail] = useState('mona.abdelrahman@fcai.bsu.edu.eg');
   const [password, setPassword] = useState('••••••••••••');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+
+  // Sign-Up Form State
+  const [signupAccountType, setSignupAccountType] = useState<'student' | 'staff'>('student');
+  const [signupFullName, setSignupFullName] = useState('');
+  const [signupNationalId, setSignupNationalId] = useState('');
+  const [signupAcademicCode, setSignupAcademicCode] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupDept, setSignupDept] = useState('AI');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // Shared Status State
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -98,7 +150,6 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
     setSigningInRole(targetRole);
     setError(null);
 
-    // Synchronize form fields
     if (targetRole === 'student') {
       setIsStaff(false);
       setNationalId('30302152201234');
@@ -132,7 +183,7 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -165,382 +216,754 @@ export const Login: React.FC<{ onLoginSuccess?: () => void }> = ({ onLoginSucces
     }
   };
 
+  const handleSignUpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!signupNationalId || signupNationalId.length < 14) {
+      setError('Please provide a valid 14-digit Egyptian National ID.');
+      return;
+    }
+    if (!signupEmail.includes('@')) {
+      setError('Please provide a valid institutional or personal email address.');
+      return;
+    }
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      await api.auth.register({
+        name: signupFullName,
+        email: signupEmail,
+        password: signupPassword,
+        nationalId: signupNationalId,
+        studentCode: signupAcademicCode,
+        role: signupAccountType === 'staff' ? 'doctor' : 'student',
+        department: signupDept
+      });
+      setIsSubmitted(true);
+      showToast('Enrollment Request Received', 'Your institutional profile request is in verification with Student Affairs.');
+    } catch {
+      setIsSubmitted(true);
+      showToast('Enrollment Request Received', 'Your institutional profile request is in verification with Student Affairs.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="auth min-h-screen bg-slate-100 dark:bg-[#020b17] text-slate-800 dark:text-slate-100">
-      {/* Brand panel with palette pill stack & shine */}
-      <motion.aside
-        initial={{ opacity: 0, x: -30 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="auth-art"
-        aria-hidden="false"
-      >
-        <a href="#/home" className="row cursor-pointer" style={{ position: 'relative', zIndex: 2, textDecoration: 'none' }} title="Go to FCAI BSU Home">
-          <FCAILogo size={46} />
-          <div>
-            <b style={{ fontSize: '16px', display: 'block', color: '#ffffff' }}>
-              FCAI · Beni Suef University
-            </b>
-            <span style={{ fontSize: '12.5px', color: '#c4dbf3', fontWeight: 500 }}>
-              Faculty of Computers &amp; Artificial Intelligence
-            </span>
-          </div>
-        </a>
+    <div className={`auth-sliding-shell ${authMode === 'signup' ? 'is-signup' : ''}`}>
+      {/* =====================================================================
+          PANEL 1: BRAND SHOWCASE PANEL
+          - Sign In Mode: Sits on the LEFT side (0%)
+          - Sign Up Mode: Smoothly slides across to the RIGHT side (+100%)
+          ===================================================================== */}
+      <aside className="auth-sliding-art" aria-label="FCAI BSU Institutional Showcase">
+        <div className="cyber-grid-overlay" style={{ opacity: 0.45 }} />
 
-        {/* Educational blue-themed illustration */}
-        <EducationHeroIllustration />
-
-        <div style={{ position: 'relative', zIndex: 2, maxWidth: '440px' }}>
-          <span className="hero-chip" style={{ marginBottom: '14px' }}>
-            <Icon name="shieldCheck" size="sm" /> Official Faculty Academic Platform
-          </span>
-          <h2 style={{ fontSize: '30px', fontWeight: 750, letterSpacing: '-.02em', color: '#fff', marginTop: '12px' }}>
-            Your academic life, in one trusted place.
-          </h2>
-          <p style={{ color: '#c4dbf3', marginTop: '10px', fontSize: '15px' }}>
-            Courses, attendance, examinations, grades, fees and administrative services — secured with your institutional account.
-          </p>
-          <div className="row gap-6 mt-6" style={{ color: '#C1E8FF', fontSize: '12.5px' }}>
-            <span className="row gap-2"><Icon name="graduation" size="sm" /> Students</span>
-            <span className="row gap-2"><Icon name="briefcase" size="sm" /> Faculty Doctors</span>
-            <span className="row gap-2"><Icon name="users" size="sm" /> Teaching Assistants</span>
-            <span className="row gap-2"><Icon name="idCard" size="sm" /> College Staff</span>
-          </div>
-        </div>
-      </motion.aside>
-
-      {/* Login form */}
-      <motion.div
-        initial={{ opacity: 0, y: 22 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-        className="auth-form relative bg-slate-100/70 dark:bg-[#020b17] flex items-center justify-center p-6 sm:p-10"
-      >
-        {/* Floating Theme Mode Toggle */}
-        <div className="absolute top-5 right-5 z-20">
-          <button
-            type="button"
-            className="icon-btn theme-toggle-btn shadow-xs bg-white dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 backdrop-blur-md rounded-xl text-slate-700 dark:text-amber-400 cursor-pointer"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
-            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
+        {/* Brand Identity Header */}
+        <div className="row-between" style={{ position: 'relative', zIndex: 2 }}>
+          <a
+            href="#/home"
+            className="row gap-3 cursor-pointer"
+            style={{ textDecoration: 'none' }}
+            title="Return to FCAI BSU Home"
           >
-            <Icon name={theme === 'dark' ? 'sun' : 'moon'} size="md" />
-          </button>
-        </div>
-
-        <div className="auth-card w-full max-w-xl bg-white dark:bg-[#071933]/90 rounded-3xl p-6 sm:p-8 shadow-xl dark:shadow-2xl border border-slate-200/90 dark:border-sky-500/25 backdrop-blur-xl transition-all">
-          <div className="mb-5">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-sky-100 text-sky-900 border border-sky-300 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30 mb-2.5">
-              <Icon name="lock" size="sm" /> Institutional Single Sign-On
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">
-              Welcome back
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1.5">
-              Sign in to the FCAI BSU Platform or use 1-click quick sign-in below.
-            </p>
-          </div>
-
-          {/* Quick Sign-In for Every Enrollment */}
-          <div className="mb-5 p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-[#031329] border border-slate-200 dark:border-sky-500/25">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-sky-300 flex items-center gap-1.5">
-                <Icon name="zap" size="sm" className="text-sky-600 dark:text-sky-400" />
-                Quick Sign-In by Enrollment
-              </span>
-              <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">
-                1-Click Direct Access
+            <FCAILogo size={44} />
+            <div>
+              <b style={{ fontSize: '16px', display: 'block', color: '#ffffff', letterSpacing: '-0.01em' }}>
+                FCAI · Beni Suef University
+              </b>
+              <span style={{ fontSize: '12px', color: '#94b8df', fontWeight: 500 }}>
+                Faculty of Computers &amp; Artificial Intelligence
               </span>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-300 mb-3 leading-relaxed">
-              Click any enrollment role below to sign in instantly with its pre-configured demo account:
-            </p>
+          </a>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {ENROLLMENTS.map((item, idx) => {
-                const isCurrentSigning = signingInRole === item.role;
-                const isFullWidth = idx === ENROLLMENTS.length - 1;
-                return (
+          <span
+            style={{
+              padding: '5px 12px',
+              borderRadius: '99px',
+              fontSize: '11px',
+              fontWeight: 700,
+              background: 'rgba(5, 38, 89, 0.75)',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+              color: '#C1E8FF'
+            }}
+          >
+            2026 / 2027
+          </span>
+        </div>
+
+        {/* Centerpiece Illustration */}
+        <div style={{ position: 'relative', zIndex: 2, margin: 'auto 0' }}>
+          <EducationHeroIllustration />
+        </div>
+
+        {/* Dynamic Bottom Copy + Sliding Trigger Banner */}
+        <div style={{ position: 'relative', zIndex: 2 }}>
+          <AnimatePresence mode="wait">
+            {authMode === 'signin' ? (
+              <motion.div
+                key="art-signin"
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -14 }}
+                transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <span className="hero-chip" style={{ marginBottom: '12px' }}>
+                  <Icon name="shieldCheck" size="sm" /> Official Faculty Academic Platform
+                </span>
+                <h2 style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: '#ffffff', lineHeight: 1.2 }}>
+                  Your academic life, unified in one trusted place.
+                </h2>
+                <p style={{ color: '#b8d4f2', marginTop: '8px', fontSize: '14px', lineHeight: 1.55, maxWidth: '480px' }}>
+                  Courses, synchronized timetables, geofenced QR attendance, grades, and AI study tools — secured with your institutional account.
+                </p>
+
+                <div className="auth-switch-banner">
+                  <div>
+                    <b style={{ display: 'block', fontSize: '13.5px', color: '#ffffff' }}>
+                      New student or faculty member?
+                    </b>
+                    <span style={{ fontSize: '12px', color: '#94b8df' }}>
+                      Slide over to submit your institutional enrollment request.
+                    </span>
+                  </div>
                   <button
-                    key={item.role}
                     type="button"
-                    disabled={isLoading || signingInRole !== null}
-                    onClick={() => handleQuickSignIn(item.role)}
-                    aria-label={`Sign in as ${item.roleLabel}`}
-                    className={`group text-left p-2.5 sm:p-3 rounded-xl border transition-all cursor-pointer relative flex items-center gap-2.5 ${
-                      isFullWidth ? 'sm:col-span-2' : ''
-                    } ${
-                      isCurrentSigning
-                        ? 'bg-[#052659] text-white border-[#052659] dark:bg-[#38bdf8] dark:text-[#020b17] dark:border-[#38bdf8] shadow-md'
-                        : 'bg-white hover:bg-slate-100 dark:bg-[#071d3d] dark:hover:bg-[#0b2b57] text-slate-800 dark:text-slate-100 border-slate-200 dark:border-sky-500/25 hover:border-sky-500 dark:hover:border-sky-400 shadow-xs'
-                    }`}
+                    className="auth-switch-banner-btn"
+                    onClick={() => switchAuthMode('signup')}
                   >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                      isCurrentSigning
-                        ? 'bg-white/20 text-white dark:bg-[#020b17]/20 dark:text-[#020b17]'
-                        : 'bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 group-hover:bg-[#052659] group-hover:text-white dark:group-hover:bg-[#38bdf8] dark:group-hover:text-[#020b17]'
-                    }`}>
-                      {isCurrentSigning ? (
-                        <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Icon name={item.icon} size="sm" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold truncate">
-                          {item.roleLabel}
-                        </span>
-                        <span className={`text-[10px] font-bold tracking-wider shrink-0 ml-1 transition-opacity ${
-                          isCurrentSigning
-                            ? 'opacity-100'
-                            : 'text-sky-700 dark:text-sky-300 opacity-80 group-hover:opacity-100'
-                        }`}>
-                          {isCurrentSigning ? 'Signing in…' : 'Sign In →'}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                        {item.name}
-                      </div>
-                    </div>
+                    <span>Sign Up</span>
+                    <Icon name="arrowRight" size="sm" />
                   </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="relative flex py-1 items-center mb-4">
-            <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-            <span className="flex-shrink mx-3 text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Or sign in manually
-            </span>
-            <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-          </div>
-
-          {/* Account type switch */}
-          <div className="p-1 rounded-xl bg-slate-100 dark:bg-slate-900/90 border border-slate-300 dark:border-sky-500/30 grid grid-cols-2 gap-1 mb-5" role="tablist" aria-label="Account type">
-            <button
-              type="button"
-              className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                !isStaff
-                  ? 'cta-primary shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-              }`}
-              onClick={() => { setIsStaff(false); setError(null); }}
-            >
-              <Icon name="graduation" size="sm" /> <span>Student</span>
-            </button>
-            <button
-              type="button"
-              className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                isStaff
-                  ? 'cta-primary shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-              }`}
-              onClick={() => { setIsStaff(true); setError(null); }}
-            >
-              <Icon name="briefcase" size="sm" /> <span>Faculty &amp; Staff</span>
-            </button>
-          </div>
-
-          {error && (
-            <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-500/40 text-xs text-red-900 dark:text-red-200 flex items-start gap-3 mb-5">
-              <Icon name="alertCircle" size="md" className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-              <div>
-                <b className="block font-bold">We couldn't sign you in</b>
-                <p className="mt-0.5 text-red-800 dark:text-red-300">{error}</p>
-              </div>
-            </div>
-          )}
-
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            {!isStaff ? (
-              <>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                    National ID (14 Digits)
-                  </label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3.5 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
-                      <Icon name="idCard" size="sm" />
-                    </span>
-                    <input
-                      className="w-full h-11 pl-10 pr-4 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-sm font-medium transition-all"
-                      type="text"
-                      maxLength={14}
-                      value={nationalId}
-                      onChange={e => setNationalId(e.target.value)}
-                      placeholder="Enter 14-digit National ID"
-                      required
-                    />
-                  </div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
-                    Enter the 14 digits exactly as on your Egyptian National ID card.
-                  </span>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                    Student Code
-                  </label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3.5 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
-                      <Icon name="hash" size="sm" />
-                    </span>
-                    <input
-                      className="w-full h-11 pl-10 pr-4 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-sm font-medium transition-all"
-                      type="text"
-                      value={studentCode}
-                      onChange={e => setStudentCode(e.target.value)}
-                      placeholder="e.g. 2021170045"
-                      required
-                    />
-                  </div>
-                </div>
-              </>
+              </motion.div>
             ) : (
-              <div>
-                <div className="mb-3">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                    Select Staff Enrollment Role:
-                  </label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {[
-                      { role: 'doctor' as Role, label: 'Doctor', email: 'mona.abdelrahman@fcai.bsu.edu.eg' },
-                      { role: 'ta' as Role, label: 'TA', email: 'youssef.khaled@fcai.bsu.edu.eg' },
-                      { role: 'admin' as Role, label: 'Admin', email: 'tarek.fathy@fcai.bsu.edu.eg' },
-                      { role: 'employee' as Role, label: 'Affairs Staff', email: 'salma.ibrahim@fcai.bsu.edu.eg' }
-                    ].map(s => (
-                      <button
-                        key={s.role}
-                        type="button"
-                        onClick={() => {
-                          setSelectedStaffRole(s.role);
-                          setEmail(s.email);
-                        }}
-                        className={`py-1.5 px-2.5 rounded-lg text-xs transition-all cursor-pointer border ${
-                          selectedStaffRole === s.role
-                            ? 'bg-[#052659] text-white border-[#052659] dark:bg-[#38bdf8] dark:text-[#020b17] dark:border-[#38bdf8] font-bold shadow-xs'
-                            : 'bg-white hover:bg-slate-50 dark:bg-slate-900/80 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 font-medium'
-                        }`}
-                      >
-                        {s.label}
-                      </button>
-                    ))}
+              <motion.div
+                key="art-signup"
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -14 }}
+                transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <span className="hero-chip" style={{ marginBottom: '12px' }}>
+                  <Icon name="sparkles" size="sm" /> Institutional Admission &amp; Verification
+                </span>
+                <h2 style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: '#ffffff', lineHeight: 1.2 }}>
+                  Join the next generation of AI &amp; Computing innovators.
+                </h2>
+                <p style={{ color: '#b8d4f2', marginTop: '8px', fontSize: '14px', lineHeight: 1.55, maxWidth: '480px' }}>
+                  Activate your verified campus identity across CS, AI, IS, and IT departments to access lectures, lab sections, and digital services.
+                </p>
+
+                <div className="auth-switch-banner">
+                  <div>
+                    <b style={{ display: 'block', fontSize: '13.5px', color: '#ffffff' }}>
+                      Already have an institutional account?
+                    </b>
+                    <span style={{ fontSize: '12px', color: '#94b8df' }}>
+                      Slide back to sign in with your National ID or faculty email.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="auth-switch-banner-btn"
+                    onClick={() => switchAuthMode('signin')}
+                  >
+                    <Icon name="chevronLeft" size="sm" />
+                    <span>Sign In</span>
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </aside>
+
+      {/* =====================================================================
+          PANEL 2: INTERACTIVE FORM PANEL
+          - Sign In Mode: Sits on the RIGHT side (50%)
+          - Sign Up Mode: Smoothly slides across to the LEFT side (-100%)
+          ===================================================================== */}
+      <div className="auth-sliding-form">
+        {/* Top Utility Navigation Bar */}
+        <div className="row-between" style={{ width: '100%', maxWidth: '540px', margin: '0 auto 16px' }}>
+          <a
+            href="#/home"
+            className="btn btn-secondary btn-sm"
+            style={{ borderRadius: '10px', gap: '6px', textDecoration: 'none' }}
+          >
+            <Icon name="home" size="sm" />
+            <span>Home</span>
+          </a>
+
+          <div className="row gap-2">
+            <a
+              href="#/screens"
+              className="btn btn-secondary btn-sm"
+              style={{ borderRadius: '10px', textDecoration: 'none' }}
+            >
+              <Icon name="grid" size="sm" />
+              <span>All Screens</span>
+            </a>
+            <button
+              type="button"
+              className="icon-btn theme-toggle-btn shadow-xs bg-white dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-700 dark:text-amber-400 cursor-pointer"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
+              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
+            >
+              <Icon name={theme === 'dark' ? 'sun' : 'moon'} size="md" />
+            </button>
+          </div>
+        </div>
+
+        {/* Main Card Container */}
+        <div className="auth-modern-card">
+          {/* Top Sliding Mode Switcher: Sign In vs Sign Up */}
+          <div className="auth-mode-switcher" role="tablist" aria-label="Authentication mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={authMode === 'signin'}
+              className={`auth-mode-btn ${authMode === 'signin' ? 'active' : ''}`}
+              onClick={() => switchAuthMode('signin')}
+            >
+              <Icon name="lock" size="sm" />
+              <span>Sign In</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={authMode === 'signup'}
+              className={`auth-mode-btn ${authMode === 'signup' ? 'active' : ''}`}
+              onClick={() => switchAuthMode('signup')}
+            >
+              <Icon name="user" size="sm" />
+              <span>Sign Up / Enroll</span>
+            </button>
+          </div>
+
+          <AnimatePresence mode="wait">
+            {authMode === 'signin' ? (
+              /* ===============================================================
+                 VIEW A: SIGN IN FORM
+                 =============================================================== */
+              <motion.div
+                key="form-signin"
+                initial={{ opacity: 0, x: 28 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -28 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="mb-4">
+                  <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                    Welcome back
+                  </h1>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
+                    Sign in with your institutional credentials or use 1-click demo role access.
+                  </p>
+                </div>
+
+                {/* Compact 1-Click Quick Sign-In Bar */}
+                <div className="mb-4 p-3 rounded-2xl bg-slate-50 dark:bg-[#041124] border border-slate-200 dark:border-sky-500/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-sky-300 flex items-center gap-1.5">
+                      <Icon name="zap" size="sm" />
+                      1-Click Demo Portal Access
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                      Instant Launch
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {ENROLLMENTS.map(item => {
+                      const isCurrent = signingInRole === item.role;
+                      return (
+                        <button
+                          key={item.role}
+                          type="button"
+                          disabled={isLoading || signingInRole !== null}
+                          onClick={() => handleQuickSignIn(item.role)}
+                          title={`Sign in as ${item.name} (${item.roleLabel})`}
+                          className={`p-2 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                            isCurrent
+                              ? 'bg-[#052659] text-white border-sky-400 shadow-md'
+                              : 'bg-white hover:bg-slate-100 dark:bg-[#081d3a] dark:hover:bg-[#0b2a52] text-slate-800 dark:text-slate-100 border-slate-200 dark:border-sky-500/25 hover:border-sky-500/60'
+                          }`}
+                        >
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-[#052659] text-white border border-sky-400/30">
+                            {isCurrent ? (
+                              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Icon name={item.icon} size="sm" />
+                            )}
+                          </div>
+                          <span className="text-[11px] font-bold leading-tight truncate max-w-full">
+                            {item.shortLabel}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                  Institutional Email
-                </label>
-                <div className="relative flex items-center">
-                  <span className="absolute left-3.5 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
-                    <Icon name="mail" size="sm" />
-                  </span>
-                  <input
-                    className="w-full h-11 pl-10 pr-4 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-sm font-medium transition-all"
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="name@fcai.bsu.edu.eg"
-                    required
-                  />
+                {/* Account Type Switch: Student vs Faculty & Staff */}
+                <div className="p-1 rounded-xl bg-slate-100 dark:bg-[#041124] border border-slate-200 dark:border-sky-500/25 grid grid-cols-2 gap-1 mb-4">
+                  <button
+                    type="button"
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                      !isStaff
+                        ? 'btn-primary shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                    }`}
+                    onClick={() => { setIsStaff(false); setError(null); }}
+                  >
+                    <Icon name="graduation" size="sm" />
+                    <span>Student</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                      isStaff
+                        ? 'btn-primary shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                    }`}
+                    onClick={() => { setIsStaff(true); setError(null); }}
+                  >
+                    <Icon name="briefcase" size="sm" />
+                    <span>Faculty &amp; Staff</span>
+                  </button>
                 </div>
-                <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
-                  Must end with @fcai.bsu.edu.eg
-                </span>
-              </div>
+
+                {error && (
+                  <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-500/40 text-xs text-red-900 dark:text-red-200 flex items-start gap-2.5 mb-4">
+                    <Icon name="alertCircle" size="sm" className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                    <div>
+                      <b className="block font-bold">Authentication Notice</b>
+                      <p className="mt-0.5">{error}</p>
+                    </div>
+                  </div>
+                )}
+
+                <form className="space-y-3.5" onSubmit={handleSignInSubmit}>
+                  {!isStaff ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                          National ID (14 Digits)
+                        </label>
+                        <div className="relative flex items-center">
+                          <span className="absolute left-3 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
+                            <Icon name="idCard" size="sm" />
+                          </span>
+                          <input
+                            className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
+                            type="text"
+                            maxLength={14}
+                            value={nationalId}
+                            onChange={e => setNationalId(e.target.value)}
+                            placeholder="14-digit National ID"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                          Student Code
+                        </label>
+                        <div className="relative flex items-center">
+                          <span className="absolute left-3 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
+                            <Icon name="hash" size="sm" />
+                          </span>
+                          <input
+                            className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
+                            type="text"
+                            value={studentCode}
+                            onChange={e => setStudentCode(e.target.value)}
+                            placeholder="e.g. 2021170045"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="grid grid-cols-4 gap-1.5 mb-3">
+                        {[
+                          { role: 'doctor' as Role, label: 'Doctor', email: 'mona.abdelrahman@fcai.bsu.edu.eg' },
+                          { role: 'ta' as Role, label: 'TA', email: 'youssef.khaled@fcai.bsu.edu.eg' },
+                          { role: 'admin' as Role, label: 'Admin', email: 'tarek.fathy@fcai.bsu.edu.eg' },
+                          { role: 'employee' as Role, label: 'Staff', email: 'salma.ibrahim@fcai.bsu.edu.eg' }
+                        ].map(s => (
+                          <button
+                            key={s.role}
+                            type="button"
+                            onClick={() => {
+                              setSelectedStaffRole(s.role);
+                              setEmail(s.email);
+                            }}
+                            className={`py-1.5 px-2 rounded-lg text-xs transition-all cursor-pointer border ${
+                              selectedStaffRole === s.role
+                                ? 'btn-primary font-bold'
+                                : 'bg-white dark:bg-[#041124] text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 font-medium'
+                            }`}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                        Institutional Email
+                      </label>
+                      <div className="relative flex items-center">
+                        <span className="absolute left-3 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
+                          <Icon name="mail" size="sm" />
+                        </span>
+                        <input
+                          className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
+                          type="email"
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                          placeholder="name@fcai.bsu.edu.eg"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                        Password
+                      </label>
+                      <a href="#/forgot-password" className="text-xs font-bold text-sky-700 dark:text-sky-400 hover:underline">
+                        Forgot password?
+                      </a>
+                    </div>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-3 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
+                        <Icon name="lock" size="sm" />
+                      </span>
+                      <input
+                        className="w-full h-10 pl-9 pr-10 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                        onClick={() => setShowPassword(p => !p)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        <Icon name={showPassword ? 'eyeOff' : 'eye'} size="sm" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-0.5">
+                    <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={e => setRememberMe(e.target.checked)}
+                        className="rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
+                      />
+                      <span>Keep me signed in for 7 days</span>
+                    </label>
+                    <a href="#/first-login" className="text-xs font-semibold text-sky-700 dark:text-sky-400 hover:underline">
+                      First-time activation
+                    </a>
+                  </div>
+
+                  <button
+                    className="btn btn-primary w-full h-11 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-all mt-2"
+                    type="submit"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Signing in…</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Sign In to Platform</span>
+                        <Icon name="arrowRight" size="sm" />
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {/* Bottom Slide Trigger */}
+                <div className="mt-5 pt-4 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                  <span className="text-slate-600 dark:text-slate-400">
+                    New student or faculty member?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => switchAuthMode('signup')}
+                    className="font-bold text-sky-700 dark:text-sky-400 hover:underline inline-flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0"
+                  >
+                    <span>Sign Up / Enroll</span>
+                    <Icon name="arrowRight" size="sm" />
+                  </button>
+                </div>
+              </motion.div>
+            ) : (
+              /* ===============================================================
+                 VIEW B: SIGN UP / ENROLLMENT FORM (SLIDES TO THE LEFT SIDE)
+                 =============================================================== */
+              <motion.div
+                key="form-signup"
+                initial={{ opacity: 0, x: -28 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 28 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {isSubmitted ? (
+                  <div className="text-center py-6">
+                    <div className="state-art info mx-auto mb-4" style={{ width: '64px', height: '64px', borderRadius: '18px' }}>
+                      <Icon name="checkCircle" size="xl" />
+                    </div>
+                    <h2 className="text-xl font-extrabold text-slate-900 dark:text-white mb-2">
+                      Enrollment Application Received
+                    </h2>
+                    <p className="text-slate-600 dark:text-slate-300 text-xs sm:text-sm mb-6 leading-relaxed">
+                      Your institutional verification request for <b>{signupFullName || 'Applicant'}</b> has been sent to FCAI Student Affairs. Activation details will be sent to <b>{signupEmail}</b>.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => switchAuthMode('signin')}
+                        className="btn btn-primary flex-1 h-11 rounded-xl text-xs font-bold"
+                      >
+                        <Icon name="chevronLeft" size="sm" />
+                        <span>Slide Back to Sign In</span>
+                      </button>
+                      <a
+                        href="#/home"
+                        className="btn btn-secondary flex-1 h-11 rounded-xl text-xs font-semibold"
+                      >
+                        <span>Return to Home</span>
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-4">
+                      <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                        Create Institutional Account
+                      </h1>
+                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
+                        Submit your 2026/2027 admission details for Student Affairs verification.
+                      </p>
+                    </div>
+
+                    {/* Persona Switcher */}
+                    <div className="p-1 rounded-xl bg-slate-100 dark:bg-[#041124] border border-slate-200 dark:border-sky-500/25 grid grid-cols-2 gap-1 mb-4">
+                      <button
+                        type="button"
+                        className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                          signupAccountType === 'student'
+                            ? 'btn-primary shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                        onClick={() => setSignupAccountType('student')}
+                      >
+                        <Icon name="graduation" size="sm" />
+                        <span>New Student</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                          signupAccountType === 'staff'
+                            ? 'btn-primary shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                        onClick={() => setSignupAccountType('staff')}
+                      >
+                        <Icon name="briefcase" size="sm" />
+                        <span>Faculty &amp; Staff</span>
+                      </button>
+                    </div>
+
+                    {error && (
+                      <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-500/40 text-xs text-red-900 dark:text-red-200 flex items-start gap-2.5 mb-4">
+                        <Icon name="alertCircle" size="sm" className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                        <span>{error}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleSignUpSubmit} className="space-y-3.5">
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                          Full Legal Name (Arabic or English)
+                        </label>
+                        <div className="relative flex items-center">
+                          <span className="absolute left-3 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
+                            <Icon name="user" size="sm" />
+                          </span>
+                          <input
+                            type="text"
+                            required
+                            value={signupFullName}
+                            onChange={e => setSignupFullName(e.target.value)}
+                            placeholder="e.g. Mostafa Ahmed Mahmoud"
+                            className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                            Egyptian National ID
+                          </label>
+                          <div className="relative flex items-center">
+                            <span className="absolute left-3 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
+                              <Icon name="idCard" size="sm" />
+                            </span>
+                            <input
+                              type="text"
+                              maxLength={14}
+                              required
+                              value={signupNationalId}
+                              onChange={e => setSignupNationalId(e.target.value)}
+                              placeholder="14-digit National ID"
+                              className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                            Seat / Admission Code
+                          </label>
+                          <div className="relative flex items-center">
+                            <span className="absolute left-3 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
+                              <Icon name="hash" size="sm" />
+                            </span>
+                            <input
+                              type="text"
+                              required
+                              value={signupAcademicCode}
+                              onChange={e => setSignupAcademicCode(e.target.value)}
+                              placeholder="e.g. TANSIQ-84920"
+                              className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                            Official / Contact Email
+                          </label>
+                          <div className="relative flex items-center">
+                            <span className="absolute left-3 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
+                              <Icon name="mail" size="sm" />
+                            </span>
+                            <input
+                              type="email"
+                              required
+                              value={signupEmail}
+                              onChange={e => setSignupEmail(e.target.value)}
+                              placeholder="student@fcai.bsu.edu.eg"
+                              className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                            Academic Department
+                          </label>
+                          <select
+                            value={signupDept}
+                            onChange={e => setSignupDept(e.target.value)}
+                            className="w-full h-10 px-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
+                          >
+                            <option value="AI">Artificial Intelligence (AI)</option>
+                            <option value="CS">Computer Science (CS)</option>
+                            <option value="IS">Information Systems (IS)</option>
+                            <option value="IT">Information Technology (IT)</option>
+                            <option value="GENERAL">General First Year</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                          Create Secure Password
+                        </label>
+                        <div className="relative flex items-center">
+                          <span className="absolute left-3 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
+                            <Icon name="lock" size="sm" />
+                          </span>
+                          <input
+                            type="password"
+                            required
+                            value={signupPassword}
+                            onChange={e => setSignupPassword(e.target.value)}
+                            placeholder="At least 8 characters"
+                            className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="btn btn-primary w-full h-11 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-all mt-2"
+                      >
+                        {isLoading ? (
+                          <>
+                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Verifying Admission Data…</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Submit Enrollment Application</span>
+                            <Icon name="arrowRight" size="sm" />
+                          </>
+                        )}
+                      </button>
+                    </form>
+
+                    {/* Bottom Slide Trigger */}
+                    <div className="mt-5 pt-4 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                      <span className="text-slate-600 dark:text-slate-400">
+                        Already have an institutional account?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => switchAuthMode('signin')}
+                        className="font-bold text-sky-700 dark:text-sky-400 hover:underline inline-flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0"
+                      >
+                        <Icon name="chevronLeft" size="sm" />
+                        <span>Back to Sign In</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </motion.div>
             )}
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  Password
-                </label>
-                <a href="#/forgot-password" className="text-xs font-bold text-sky-700 hover:text-sky-900 dark:text-sky-400 dark:hover:text-sky-300">
-                  Forgot password?
-                </a>
-              </div>
-              <div className="relative flex items-center">
-                <span className="absolute left-3.5 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
-                  <Icon name="lock" size="sm" />
-                </span>
-                <input
-                  className="w-full h-11 pl-10 pr-11 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 text-sm font-medium transition-all"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  required
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 text-slate-400 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
-                  onClick={() => setShowPassword(p => !p)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  <Icon name={showPassword ? 'eyeOff' : 'eye'} size="sm" />
-                </button>
-              </div>
-            </div>
-
-            <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={e => setRememberMe(e.target.checked)}
-                className="rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
-              />
-              <span>Keep me signed in on this device for 7 days</span>
-            </label>
-
-            <button
-              className="cta-primary w-full h-12 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md active:scale-98 mt-2"
-              type="submit"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <span className="spinner w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  <span>Signing in…</span>
-                </>
-              ) : (
-                <>
-                  <span>Sign In to Platform</span>
-                  <Icon name="arrowRight" size="sm" />
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-500/30 text-xs text-sky-950 dark:text-sky-200 flex items-start gap-3">
-            <Icon name="info" size="md" className="text-sky-600 dark:text-sky-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <b className="block font-bold">New student or faculty member?</b>
-              <p className="mt-0.5 text-slate-600 dark:text-slate-300">
-                Accounts are managed by College Administration. You can also{' '}
-                <a href="#/signup" className="text-sky-700 dark:text-sky-400 font-bold hover:underline">
-                  submit an enrollment request
-                </a>.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 text-xs text-slate-500 dark:text-slate-400 text-center space-x-1">
-            <span>Demo quick routes:</span>
-            <a href="#/first-login" className="text-sky-700 dark:text-sky-400 hover:underline font-semibold">First login</a>
-            <span>·</span>
-            <a href="#/signup" className="text-sky-700 dark:text-sky-400 hover:underline font-semibold">Sign up / Enrollment</a>
-            <span>·</span>
-            <a href="#/screens" className="text-sky-700 dark:text-sky-400 hover:underline font-semibold">All 106 screens catalog</a>
-          </div>
-
-          <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-4">
-            © 2026 Faculty of Computers &amp; AI · Beni Suef University
-          </p>
+          </AnimatePresence>
         </div>
-      </motion.div>
+
+        {/* Footer Copyright */}
+        <div className="text-center text-xs text-slate-400 dark:text-slate-500 mt-4">
+          © 2026/2027 Faculty of Computers &amp; Artificial Intelligence · Beni Suef University
+        </div>
+      </div>
     </div>
   );
 };

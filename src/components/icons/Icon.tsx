@@ -169,17 +169,87 @@ export const Icon: React.FC<IconProps> = ({ name, size = 'md', className = '', .
 };
 
 export const FCAILogo: React.FC<{ size?: number; className?: string }> = ({ size = 40, className = '' }) => {
+  const uid = React.useId().replace(/:/g, '');
+  const svgSize = Math.round(size * 0.76);
+
   return (
     <div
       className={`sb-logo ${className}`.trim()}
-      style={{ width: `${size}px`, height: `${size}px` }}
+      style={{
+        width: `${size}px`,
+        height: `${size}px`
+      }}
       aria-hidden="true"
     >
-      <svg viewBox="0 0 32 32" width={size * 0.62} height={size * 0.62}>
-        <path d="M16 3 3 9.5 16 16l13-6.5z" fill="#052659" />
-        <path d="M8 13v6.5c4.5 3 11.5 3 16 0V13l-8 4z" fill="#052659" opacity="0.75" />
-        <circle cx="16" cy="9.5" r="2" fill="#C1E8FF" />
-        <path d="M27 10.5v7" stroke="#052659" strokeWidth="2" strokeLinecap="round" />
+      <svg viewBox="0 0 36 36" width={svgSize} height={svgSize} fill="none">
+        <defs>
+          <linearGradient id={`capTop_${uid}`} x1="6" y1="6" x2="30" y2="18" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#FFFFFF" />
+            <stop offset="100%" stopColor="#D8F1FF" />
+          </linearGradient>
+          <linearGradient id={`capBase_${uid}`} x1="10" y1="15" x2="26" y2="26" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#7DD3FC" />
+            <stop offset="100%" stopColor="#38BDF8" />
+          </linearGradient>
+          <linearGradient id={`crestRing_${uid}`} x1="4" y1="4" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.65" />
+            <stop offset="50%" stopColor="#C1E8FF" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#38BDF8" stopOpacity="0.55" />
+          </linearGradient>
+        </defs>
+
+        {/* Subtle inner hexagonal tech crest frame */}
+        <path
+          d="M18 2.5 31 10v16L18 33.5 5 26V10L18 2.5Z"
+          stroke={`url(#crestRing_${uid})`}
+          strokeWidth="1.15"
+          fill="rgba(56, 189, 248, 0.06)"
+        />
+
+        {/* Academic Mortarboard Diamond Top */}
+        <path
+          d="M18 6.2 4.8 12.6 18 19l13.2-6.4L18 6.2Z"
+          fill={`url(#capTop_${uid})`}
+        />
+
+        {/* Center Cap Skullcap / Open Book Wings */}
+        <path
+          d="M10.2 16.2v5.6c0 2.5 3.5 4.6 7.8 4.6s7.8-2.1 7.8-4.6v-5.6L18 20l-7.8-3.8Z"
+          fill={`url(#capBase_${uid})`}
+        />
+
+        {/* Crisp white center book spine / AI pillar */}
+        <path
+          d="M18 19.8v6.5"
+          stroke="#FFFFFF"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+
+        {/* Mortarboard center button */}
+        <circle cx="18" cy="12.6" r="1.7" fill="#062045" />
+        <circle cx="18" cy="12.6" r="0.8" fill="#38BDF8" />
+
+        {/* Flowing Tassel on Right */}
+        <path
+          d="M28.5 13.8v6.2"
+          stroke="#7DD3FC"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+        <circle cx="28.5" cy="21" r="1.4" fill="#FFFFFF" />
+
+        {/* AI Neural Nodes at Bottom Crest */}
+        <path
+          d="M12.5 29.2h11"
+          stroke="#7DD3FC"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          strokeOpacity="0.7"
+        />
+        <circle cx="12.5" cy="29.2" r="1.3" fill="#38BDF8" />
+        <circle cx="18" cy="29.2" r="1.5" fill="#FFFFFF" />
+        <circle cx="23.5" cy="29.2" r="1.3" fill="#38BDF8" />
       </svg>
     </div>
   );

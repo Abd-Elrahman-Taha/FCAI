@@ -98,8 +98,8 @@ export const LiveCampusPulse: React.FC<LiveCampusPulseProps> = ({
             href={role === 'doctor' ? '#/doctor/attendance-session' : '#/student/qr-attendance'}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-[#052659] hover:bg-[#0b3a7a] active:scale-95 transition-all shadow-md shadow-blue-900/30 cursor-pointer whitespace-nowrap"
           >
-            <Icon name={role === 'doctor' ? 'play' : 'qr'} size="sm" />
-            <span>{role === 'doctor' ? 'Launch QR' : 'Scan Check-In'}</span>
+            <Icon className="text-white" name={role === 'doctor' ? 'play' : 'qr'} size="sm" />
+            <span className="text-xs font-bold text-white">{role === 'doctor' ? 'Launch QR' : 'Scan Check-In'}</span>
           </a>
         </div>
       </div>

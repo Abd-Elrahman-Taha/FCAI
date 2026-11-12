@@ -65,7 +65,6 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ activeNav = 'home' }
         >
           <div className="relative flex-shrink-0">
             <FCAILogo size={38} />
-            <div className="absolute -inset-1 rounded-full bg-cyan-400/25 blur-sm group-hover:bg-cyan-400/50 transition-all pointer-events-none" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -148,7 +147,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ activeNav = 'home' }
             <div className="flex items-center gap-2">
               <a
                 href={`#/${role}/dashboard`}
-                className="cta-primary inline-flex items-center gap-2 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
+                className="btn-secondary inline-flex items-center gap-2 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
               >
                 <span>Enter Portal</span>
                 <Icon name="arrowRight" size="sm" />
@@ -168,7 +167,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ activeNav = 'home' }
           ) : (
             <a
               href="#/login"
-              className="cta-primary inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
+              className="btn-secondary inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
             >
               <Icon name="user" size="sm" />
               <span>Login</span>

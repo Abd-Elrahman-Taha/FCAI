@@ -7,7 +7,6 @@ import { Login } from './pages/auth/Login';
 import { FirstLogin } from './pages/auth/FirstLogin';
 import { ForgotPassword } from './pages/auth/ForgotPassword';
 import { ResetPassword } from './pages/auth/ResetPassword';
-import { Signup } from './pages/auth/Signup';
 import { AccountSecurity } from './pages/auth/AccountSecurity';
 import { CreateStudentAccount } from './pages/admin/CreateStudentAccount';
 import { UserAccountManagement } from './pages/admin/UserAccountManagement';
@@ -244,9 +243,14 @@ const RouterView: React.FC = () => {
   }
 
   // Standalone Authentication & Fullscreen screens
-  if (cleanPath === 'login' || cleanPath === 'screen/1') {
+  if (
+    cleanPath === 'login' || cleanPath === 'screen/1' ||
+    cleanPath === 'signup' || cleanPath === 'register' || cleanPath === 'enrollment'
+  ) {
+    const isSignupRoute = cleanPath === 'signup' || cleanPath === 'register' || cleanPath === 'enrollment';
     return (
       <Login
+        initialMode={isSignupRoute ? 'signup' : 'signin'}
         onLoginSuccess={() => {
           const redirect = sessionStorage.getItem('fcai_redirect_after_login');
           if (redirect) {
@@ -267,9 +271,6 @@ const RouterView: React.FC = () => {
   }
   if (cleanPath === 'reset-password' || cleanPath === 'screen/4') {
     return <ResetPassword />;
-  }
-  if (cleanPath === 'signup' || cleanPath === 'register' || cleanPath === 'enrollment') {
-    return <Signup />;
   }
   if (cleanPath === 'student/exam-player' || cleanPath === 'screen/21') {
     return (

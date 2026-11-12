@@ -149,7 +149,7 @@ export const StudentTimetable: React.FC = () => {
 
         <div className="card card-pad p-3.5">
           <div className="row gap-3 align-center">
-            <div className="state-art warning m-0" style={{ width: '42px', height: '42px', borderRadius: '12px' }}>
+            <div className="state-art info m-0" style={{ width: '42px', height: '42px', borderRadius: '12px' }}>
               <Icon name="layers" size="md" />
             </div>
             <div>
@@ -399,13 +399,11 @@ export const StudentTimetable: React.FC = () => {
                             <div>
                               <div className="row-between align-center mb-1">
                                 <span
-                                  className="badge no-dot"
+                                  className={`badge ${isLecture ? 'b-info' : 'b-primary'} no-dot`}
                                   style={{
                                     fontSize: '9.5px',
                                     height: '18px',
                                     padding: '0 6px',
-                                    background: isLecture ? 'rgba(2, 132, 199, 0.15)' : 'rgba(84, 131, 179, 0.15)',
-                                    color: isLecture ? '#0284c7' : '#5483B3',
                                     fontWeight: 700
                                   }}
                                 >
@@ -415,7 +413,7 @@ export const StudentTimetable: React.FC = () => {
                                   style={{
                                     fontSize: '9.5px',
                                     fontWeight: 650,
-                                    color: isLecture ? 'var(--blue-400)' : 'var(--success-600)'
+                                    color: isLecture ? '#38bdf8' : 'var(--blue-400)'
                                   }}
                                 >
                                   {session.sessionType}
@@ -539,12 +537,10 @@ export const StudentTimetable: React.FC = () => {
                         <div className="row-between wrap gap-2 mb-2">
                           <div className="row gap-2 align-center">
                             <span
-                              className="badge no-dot"
+                              className={`badge ${isLecture ? 'b-info' : 'b-primary'} no-dot`}
                               style={{
                                 fontSize: '11px',
-                                fontWeight: 700,
-                                background: isLecture ? 'rgba(2, 132, 199, 0.15)' : 'rgba(84, 131, 179, 0.15)',
-                                color: isLecture ? '#0284c7' : '#5483B3'
+                                fontWeight: 700
                               }}
                             >
                               {session.courseCode}
@@ -591,13 +587,7 @@ export const StudentTimetable: React.FC = () => {
         <div className="overlay" onClick={() => setSelectedSession(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
-              <div
-                className="modal-ico"
-                style={{
-                  background: selectedSession.sessionType === 'Lecture' ? 'rgba(2, 132, 199, 0.18)' : 'rgba(84, 131, 179, 0.18)',
-                  color: selectedSession.sessionType === 'Lecture' ? '#0284c7' : '#5483B3'
-                }}
-              >
+              <div className="modal-ico">
                 <Icon name={selectedSession.sessionType === 'Lecture' ? 'book' : 'layers'} size="lg" />
               </div>
               <div>
