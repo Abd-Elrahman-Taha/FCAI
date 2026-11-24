@@ -1,114 +1,164 @@
 /**
- * Academic State Context
- * 
- * Manages active student academic context:
- * - Currently enrolled courses for the semester
- * - Active registration period status
- * - Quick course enrollment and dropping actions
- * 
- * HOW TO INTEGRATE WITH BACKEND:
- * In the action placeholders below, connect to `studentApi` from `src/api/student.api.ts`.
+ * Academic State Context — Connected to GET /api/semesters/active
+ *
+ * Fetches the active semester from the backend ONLY after authentication
+ * (and once any mandatory password change is complete).
+ *
+ * Rules enforced:
+ * - Never calls /api/semesters/active before authentication.
+ * - Treats HTTP 404 as "no active semester" (noActiveSemester = true, activeSemester = null).
+ * - Never fabricates fake semester names or window statuses.
+ * - Computes registration/drop/withdrawal/preference availability strictly from
+ *   the backend-returned window `status`, never the browser's local clock.
+ * - Tracks `serverClockOffsetMs` from `serverTimeUtc` for accurate countdowns.
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { Course } from '../types';
-import { api } from '../services/api';
-// When ready to connect real API:
-// import { studentApi } from '../api/student.api';
+import type { ActiveSemester } from '../types/api/academic.types';
+import { api, ApiError } from '../services/api';
+import { useAuth } from './AuthContext';
 
 export interface AcademicContextType {
-  enrolledCourses: Course[];
+  /** Real active semester from GET /api/semesters/active (null when 404 or unauthenticated) */
+  activeSemester: ActiveSemester | null;
+  /** True when backend explicitly returned 404 (no semester currently active) */
+  noActiveSemester: boolean;
+  /** Offset (serverTimeUtcMs - clientNowMs) captured on fetch for server-synced countdowns */
+  serverClockOffsetMs: number;
+  isLoadingSemester: boolean;
+  semesterError: string | null;
+  refreshActiveSemester: () => Promise<void>;
+
+  // Derived convenience properties
   currentSemester: string;
   isRegistrationWindowOpen: boolean;
+
+  // Legacy student course fields (future backend phase — kept empty without fake API calls)
+  enrolledCourses: Course[];
   isLoadingAcademic: boolean;
   academicError: string | null;
-  /** Refresh courses and academic standing from backend */
   refreshAcademicData: () => Promise<void>;
-  /** Register student for a course offering */
-  registerCourse: (offeringId: string) => Promise<{ success: boolean; message?: string }>;
-  /** Drop a currently enrolled course */
-  dropCourse: (courseId: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 const AcademicContext = createContext<AcademicContextType | undefined>(undefined);
 
 export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
-  const [currentSemester] = useState<string>('Fall 2026/2027');
-  const [isRegistrationWindowOpen] = useState<boolean>(true);
-  const [isLoadingAcademic, setIsLoadingAcademic] = useState<boolean>(false);
-  const [academicError, setAcademicError] = useState<string | null>(null);
+  const { isAuthenticated, requiresPasswordChange } = useAuth();
 
-  /**
-   * Action: Refresh student courses from backend
-   */
-  const refreshAcademicData = useCallback(async (): Promise<void> => {
-    setIsLoadingAcademic(true);
-    setAcademicError(null);
-    try {
-      // TODO: [Backend Integration] Replace with `await studentApi.getMyCourses()`
-      const courses = await api.getMyCourses();
-      setEnrolledCourses(courses);
-    } catch (err: any) {
-      setAcademicError(err?.message || 'Failed to load enrolled courses.');
-    } finally {
-      setIsLoadingAcademic(false);
+  const [activeSemester, setActiveSemester] = useState<ActiveSemester | null>(null);
+  const [noActiveSemester, setNoActiveSemester] = useState<boolean>(false);
+  const [serverClockOffsetMs, setServerClockOffsetMs] = useState<number>(0);
+  const [isLoadingSemester, setIsLoadingSemester] = useState<boolean>(false);
+  const [semesterError, setSemesterError] = useState<string | null>(null);
+
+  const [enrolledCourses] = useState<Course[]>([]);
+
+  const refreshActiveSemester = useCallback(async (): Promise<void> => {
+    if (!isAuthenticated || requiresPasswordChange) {
+      return;
     }
-  }, []);
 
-  /**
-   * Action: Register for a course
-   */
-  const registerCourse = async (offeringId: string): Promise<{ success: boolean; message?: string }> => {
-    setIsLoadingAcademic(true);
+    setIsLoadingSemester(true);
+    setSemesterError(null);
+    setNoActiveSemester(false);
+
     try {
-      // TODO: [Backend Integration] Replace with `await studentApi.registerCourse({ offeringId })`
-      const res = await api.registerCourse(offeringId);
-      if (res && (res as any).course) {
-        setEnrolledCourses(prev => [...prev, (res as any).course]);
+      const data = await api.semesters.getActive();
+      if (data === null) {
+        setActiveSemester(null);
+        setNoActiveSemester(true);
+        setServerClockOffsetMs(0);
+      } else {
+        setActiveSemester(data);
+        setNoActiveSemester(false);
+        const serverMs = Date.parse(data.serverTimeUtc);
+        if (!Number.isNaN(serverMs)) {
+          setServerClockOffsetMs(serverMs - Date.now());
+        }
       }
-      return { success: res.success, message: res.message || 'Course registration processed.' };
-    } catch (err: any) {
-      return { success: false, message: err?.message || 'Registration failed.' };
+    } catch (err: unknown) {
+      setActiveSemester(null);
+      setNoActiveSemester(false);
+      const message =
+        err instanceof ApiError || err instanceof Error
+          ? err.message
+          : 'Failed to load active semester from backend.';
+      setSemesterError(message);
     } finally {
-      setIsLoadingAcademic(false);
+      setIsLoadingSemester(false);
     }
-  };
-
-  /**
-   * Action: Drop an enrolled course
-   */
-  const dropCourse = async (courseId: string): Promise<{ success: boolean; message?: string }> => {
-    setIsLoadingAcademic(true);
-    try {
-      // TODO: [Backend Integration] Replace with `await studentApi.dropCourse({ courseId })`
-      const res = await api.dropCourse(courseId);
-      if (res && res.success) {
-        setEnrolledCourses(prev => prev.filter(c => c.id !== courseId && c.code !== courseId));
-      }
-      return { success: true, message: res?.message || 'Course dropped successfully.' };
-    } catch (err: any) {
-      return { success: false, message: err?.message || 'Failed to drop course.' };
-    } finally {
-      setIsLoadingAcademic(false);
-    }
-  };
+  }, [isAuthenticated, requiresPasswordChange]);
 
   useEffect(() => {
-    refreshAcademicData();
-  }, [refreshAcademicData]);
+    if (!isAuthenticated || requiresPasswordChange) {
+      return;
+    }
+
+    let cancelled = false;
+    api.semesters
+      .getActive()
+      .then(data => {
+        if (cancelled) return;
+        if (data === null) {
+          setActiveSemester(null);
+          setNoActiveSemester(true);
+          setServerClockOffsetMs(0);
+          setSemesterError(null);
+        } else {
+          setActiveSemester(data);
+          setNoActiveSemester(false);
+          setSemesterError(null);
+          const serverMs = Date.parse(data.serverTimeUtc);
+          if (!Number.isNaN(serverMs)) {
+            setServerClockOffsetMs(serverMs - Date.now());
+          }
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setActiveSemester(null);
+        setNoActiveSemester(false);
+        const message =
+          err instanceof ApiError || err instanceof Error
+            ? err.message
+            : 'Failed to load active semester from backend.';
+        setSemesterError(message);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, requiresPasswordChange]);
+
+  const effectiveActiveSemester = isAuthenticated && !requiresPasswordChange ? activeSemester : null;
+  const effectiveNoActiveSemester = isAuthenticated && !requiresPasswordChange ? noActiveSemester : false;
+  const effectiveSemesterError = isAuthenticated && !requiresPasswordChange ? semesterError : null;
+  const effectiveOffsetMs = isAuthenticated && !requiresPasswordChange ? serverClockOffsetMs : 0;
+
+  const currentSemester = effectiveActiveSemester
+    ? `${effectiveActiveSemester.name} · ${effectiveActiveSemester.academicYearName}`
+    : effectiveNoActiveSemester
+    ? 'No Active Semester'
+    : '—';
+
+  const isRegistrationWindowOpen = effectiveActiveSemester?.windows.registration.status === 'Open';
 
   return (
     <AcademicContext.Provider
       value={{
-        enrolledCourses,
+        activeSemester: effectiveActiveSemester,
+        noActiveSemester: effectiveNoActiveSemester,
+        serverClockOffsetMs: effectiveOffsetMs,
+        isLoadingSemester,
+        semesterError: effectiveSemesterError,
+        refreshActiveSemester,
         currentSemester,
         isRegistrationWindowOpen,
-        isLoadingAcademic,
-        academicError,
-        refreshAcademicData,
-        registerCourse,
-        dropCourse,
+        enrolledCourses,
+        isLoadingAcademic: isLoadingSemester,
+        academicError: effectiveSemesterError,
+        refreshAcademicData: refreshActiveSemester,
       }}
     >
       {children}

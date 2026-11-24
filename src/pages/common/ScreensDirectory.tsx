@@ -19,7 +19,7 @@ interface ScreenCategory {
 }
 
 export const ScreensDirectory: React.FC = () => {
-  const { switchRole } = useAuth();
+  const { role, showToast } = useAuth();
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
 
@@ -175,8 +175,17 @@ export const ScreensDirectory: React.FC = () => {
   ];
 
   const handleNavigate = (route: string, targetRole: string) => {
-    if (['student', 'doctor', 'ta', 'admin', 'employee'].includes(targetRole)) {
-      switchRole(targetRole as any);
+    const normalizedTarget = targetRole === 'superadmin' ? 'admin' : targetRole;
+    if (
+      ['student', 'doctor', 'ta', 'admin', 'employee'].includes(normalizedTarget) &&
+      normalizedTarget !== role
+    ) {
+      showToast(
+        'Role Restricted',
+        `Sign in with a ${normalizedTarget.toUpperCase()} account to access that portal.`,
+        'info'
+      );
+      return;
     }
     window.location.hash = route;
   };

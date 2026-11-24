@@ -135,8 +135,13 @@ import { AIAssistantLandingPage } from './pages/public/AIAssistantLandingPage';
 import { PlatformMetricsPage } from './pages/public/PlatformMetricsPage';
 import { FaqPage } from './pages/public/FaqPage';
 
+import type { Role } from './types';
+
+const normalizeHashPath = (path: string): string =>
+  path.replace(/^#\/?/, '').split('?')[0].toLowerCase().trim();
+
 const isPublicRoute = (path: string): boolean => {
-  const clean = path.replace(/^#\/?/, '').toLowerCase().trim();
+  const clean = normalizeHashPath(path);
   // 1. Landing and Homepage
   if (!clean || clean === 'home' || clean === 'landing' || clean === 'welcome') {
     return true;
@@ -151,10 +156,9 @@ const isPublicRoute = (path: string): boolean => {
   ) {
     return true;
   }
-  // 3. Auth and Onboarding pages
+  // 3. Unauthenticated Auth & Recovery pages
   if (
     clean === 'login' || clean === 'screen/1' ||
-    clean === 'first-login' || clean === 'screen/2' ||
     clean === 'forgot-password' || clean === 'screen/3' ||
     clean === 'reset-password' || clean === 'screen/4' ||
     clean === 'signup' || clean === 'register' || clean === 'enrollment'
@@ -164,65 +168,149 @@ const isPublicRoute = (path: string): boolean => {
   return false;
 };
 
+/**
+ * Determines which portal Role owns a protected route.
+ * Returns `null` for shared authenticated routes accessible by any authenticated role.
+ */
+const getRequiredRoleForRoute = (cleanPath: string): Role | null => {
+  const clean = normalizeHashPath(cleanPath);
+  const first = clean.split('/')[0];
+
+  if (first === 'student') return 'student';
+  if (first === 'doctor') return 'doctor';
+  if (first === 'ta') return 'ta';
+  if (first === 'admin' || first === 'superadmin') return 'admin';
+  if (first === 'employee') return 'employee';
+
+  const screenMatch = clean.match(/^screen\/(\d+)$/);
+  if (screenMatch) {
+    const num = Number(screenMatch[1]);
+    if (num === 6 || num === 7 || (num >= 73 && num <= 106)) return 'admin';
+    if ((num >= 8 && num <= 36) || num === 40 || num === 41) return 'student';
+    if (num >= 42 && num <= 66) return 'doctor';
+    if (num >= 67 && num <= 72) return 'ta';
+  }
+
+  return null;
+};
+
 const RouterView: React.FC = () => {
-  const { role, switchRole, isAuthenticated, showToast } = useAuth();
+  const {
+    role,
+    backendRole,
+    isAuthenticated,
+    requiresPasswordChange,
+    setPendingRedirect,
+    consumePendingRedirect,
+    showToast,
+  } = useAuth();
   const [currentHash, setCurrentHash] = useState<string>(() => window.location.hash || '');
 
-  const cleanPath = currentHash.replace(/^#\/?/, '').toLowerCase().trim();
+  const cleanPath = normalizeHashPath(currentHash);
   const isPublic = isPublicRoute(cleanPath);
+  const isFirstLoginRoute = cleanPath === 'first-login' || cleanPath === 'screen/2';
+
+  const handleLoginNavigation = (result: { routeRole: Role; requiresPasswordChange: boolean }) => {
+    if (result.requiresPasswordChange) {
+      window.location.hash = '#/first-login';
+      return;
+    }
+
+    const pending = consumePendingRedirect();
+    if (pending) {
+      const pendingRequiredRole = getRequiredRoleForRoute(pending);
+      if (pendingRequiredRole === null || pendingRequiredRole === result.routeRole) {
+        window.location.hash = pending;
+        return;
+      }
+    }
+
+    window.location.hash = `#/${result.routeRole}/dashboard`;
+  };
 
   useEffect(() => {
     const handleHashChange = () => {
       const h = window.location.hash || '';
       setCurrentHash(h);
 
-      const clean = h.replace(/^#\/?/, '').toLowerCase().trim();
-      const first = clean.split('/')[0];
+      const clean = normalizeHashPath(h);
 
-      // Route Protection: If not authenticated and trying to access a protected portal page
+      // Guard 1: Unauthenticated access to protected route
       if (!isAuthenticated && !isPublicRoute(clean)) {
-        sessionStorage.setItem('fcai_redirect_after_login', h);
+        setPendingRedirect(h);
         showToast('Sign In Required', 'Please sign in to access your institutional portal.', 'info');
         window.location.hash = '#/login';
         return;
       }
 
-      if (isAuthenticated && ['student', 'doctor', 'ta', 'admin', 'employee'].includes(first) && first !== role) {
-        switchRole(first as any);
+      // Guard 2: Mandatory password change blocks all protected routes until completed
+      if (
+        isAuthenticated &&
+        requiresPasswordChange &&
+        !isPublicRoute(clean) &&
+        clean !== 'first-login' &&
+        clean !== 'screen/2'
+      ) {
+        showToast(
+          'Password Change Required',
+          'You must change your temporary password before accessing the platform.',
+          'info'
+        );
+        window.location.hash = '#/first-login';
+        return;
+      }
+
+      // Guard 3: Role-based route guard (prevent cross-role URL navigation)
+      if (isAuthenticated && !requiresPasswordChange) {
+        const requiredRole = getRequiredRoleForRoute(clean);
+        if (requiredRole !== null && requiredRole !== role) {
+          showToast(
+            'Access Restricted',
+            `Your role (${backendRole || role}) cannot access the ${requiredRole.toUpperCase()} portal.`,
+            'error'
+          );
+          window.location.hash = `#/${role}/dashboard`;
+        }
       }
     };
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [role, switchRole, isAuthenticated, showToast]);
+  }, [role, backendRole, isAuthenticated, requiresPasswordChange, setPendingRedirect, showToast]);
 
-  // Initial check on mount: If user opens app on a protected portal route without being signed in
+  // Initial guard on mount / auth state transition
   useEffect(() => {
     if (!isAuthenticated && !isPublic) {
-      sessionStorage.setItem('fcai_redirect_after_login', window.location.hash || '');
+      setPendingRedirect(window.location.hash || null);
       showToast('Sign In Required', 'Please sign in to access your institutional portal.', 'info');
       window.location.hash = '#/login';
+      return;
     }
-  }, [isAuthenticated, isPublic, showToast]);
 
-  // If not authenticated and on a protected route, render Login with auto-redirect
+    if (isAuthenticated && requiresPasswordChange && !isPublic && !isFirstLoginRoute) {
+      window.location.hash = '#/first-login';
+      return;
+    }
+
+    if (isAuthenticated && !requiresPasswordChange) {
+      const requiredRole = getRequiredRoleForRoute(cleanPath);
+      if (requiredRole !== null && requiredRole !== role) {
+        showToast(
+          'Access Restricted',
+          `Your role (${backendRole || role}) cannot access the ${requiredRole.toUpperCase()} portal.`,
+          'error'
+        );
+        window.location.hash = `#/${role}/dashboard`;
+      }
+    }
+  }, [isAuthenticated, requiresPasswordChange, isPublic, isFirstLoginRoute, cleanPath, role, backendRole, setPendingRedirect, showToast]);
+
+  // Unauthenticated access to protected route -> render Login
   if (!isAuthenticated && !isPublic) {
-    return (
-      <Login
-        onLoginSuccess={() => {
-          const redirect = sessionStorage.getItem('fcai_redirect_after_login');
-          if (redirect) {
-            sessionStorage.removeItem('fcai_redirect_after_login');
-            window.location.hash = redirect;
-          } else {
-            window.location.hash = `#/${role}/dashboard`;
-          }
-        }}
-      />
-    );
+    return <Login onLoginSuccess={handleLoginNavigation} />;
   }
 
-  // Standalone Modern Futuristic Public Landing & Feature Showcase Pages
+  // Standalone Public Landing & Feature Showcase Pages
   if (cleanPath === '' || cleanPath === 'home' || cleanPath === 'landing' || cleanPath === 'welcome') {
     return <HomePage />;
   }
@@ -242,7 +330,7 @@ const RouterView: React.FC = () => {
     return <FaqPage />;
   }
 
-  // Standalone Authentication & Fullscreen screens
+  // Standalone Authentication & Recovery screens
   if (
     cleanPath === 'login' || cleanPath === 'screen/1' ||
     cleanPath === 'signup' || cleanPath === 'register' || cleanPath === 'enrollment'
@@ -251,20 +339,9 @@ const RouterView: React.FC = () => {
     return (
       <Login
         initialMode={isSignupRoute ? 'signup' : 'signin'}
-        onLoginSuccess={() => {
-          const redirect = sessionStorage.getItem('fcai_redirect_after_login');
-          if (redirect) {
-            sessionStorage.removeItem('fcai_redirect_after_login');
-            window.location.hash = redirect;
-          } else {
-            window.location.hash = `#/${role}/dashboard`;
-          }
-        }}
+        onLoginSuccess={handleLoginNavigation}
       />
     );
-  }
-  if (cleanPath === 'first-login' || cleanPath === 'screen/2') {
-    return <FirstLogin onComplete={() => { window.location.hash = `#/${role}/dashboard`; }} />;
   }
   if (cleanPath === 'forgot-password' || cleanPath === 'screen/3') {
     return <ForgotPassword />;
@@ -272,6 +349,39 @@ const RouterView: React.FC = () => {
   if (cleanPath === 'reset-password' || cleanPath === 'screen/4') {
     return <ResetPassword />;
   }
+
+  // Mandatory Password Change Screen (enforced whenever requiresPasswordChange === true)
+  if (isFirstLoginRoute || (isAuthenticated && requiresPasswordChange)) {
+    return (
+      <FirstLogin
+        onComplete={() => {
+          window.location.hash = `#/${role}/dashboard`;
+        }}
+      />
+    );
+  }
+
+  // Role-based route enforcement before rendering any protected screen
+  const requiredRole = getRequiredRoleForRoute(cleanPath);
+  if (requiredRole !== null && requiredRole !== role) {
+    return (
+      <AppShell currentPath={cleanPath}>
+        <div className="card card-pad state" style={{ maxWidth: '520px', margin: '48px auto' }}>
+          <div className="state-art danger">
+            <span style={{ fontSize: '26px', fontWeight: 800 }}>403</span>
+          </div>
+          <h3>Access Restricted</h3>
+          <p className="text-sm muted">
+            Your authenticated role (<b>{backendRole || role}</b>) does not have permission to open routes belonging to the <b>{requiredRole.toUpperCase()}</b> portal.
+          </p>
+          <a href={`#/${role}/dashboard`} className="btn btn-primary mt-3">
+            Return to My Dashboard
+          </a>
+        </div>
+      </AppShell>
+    );
+  }
+
   if (cleanPath === 'student/exam-player' || cleanPath === 'screen/21') {
     return (
       <AppShell currentPath={cleanPath} isFullShell={false}>

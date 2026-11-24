@@ -1,35 +1,59 @@
 /**
  * Authentication & Identity State Context
- * 
- * Manages institutional authentication state, current user profile,
- * active portal role, and session expiration.
- * 
- * BACKEND INTEGRATION INSTRUCTIONS:
- * When your backend authentication endpoints are ready:
- * 1. Open `src/api/auth.api.ts` and implement `authApi.login()`, `authApi.getCurrentUser()`, etc.
- * 2. In this file, update the `login`, `loadUserProfile`, and `logout` actions to call `authApi`.
+ *
+ * Connected strictly to the confirmed /api/auth backend endpoints and backed by
+ * the single centralized in-memory `authSession` store (zero browser storage).
+ *
+ * Responsibilities:
+ * - Student & Staff login via POST /api/auth/login
+ * - Authenticated profile enrichment via GET /api/auth/me
+ * - Mandatory first-login password change via POST /api/auth/change-password
+ * - Single-device logout (POST /api/auth/logout) & all-device revocation (POST /api/auth/logout-all)
+ * - Global 401 session-expiry and 403 permission-error event handling
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import type { Role, User, NotificationItem } from '../types';
-import type { LoginRequest } from '../types/api';
-import type { ThemeMode, ToastItem } from './UIContext';
-import { api, tokenStorage } from '../services/api';
+import type {
+  ChangePasswordRequest,
+  CurrentUserResponse,
+  LoginRequest,
+  UserRole,
+} from '../types/api/auth.types';
+import { mapBackendRoleToRouteRole } from '../types/api/auth.types';
+import { api, ApiError, authSession } from '../services/api';
+import { useUI, type ThemeMode, type ToastItem } from './UIContext';
 
 export type { ThemeMode, ToastItem };
 
+export interface LoginResult {
+  user: User;
+  backendRole: UserRole;
+  routeRole: Role;
+  requiresPasswordChange: boolean;
+}
+
 export interface AuthContextType {
   currentUser: User | null;
+  profile: CurrentUserResponse | null;
   isAuthenticated: boolean;
+  backendRole: UserRole | null;
   role: Role;
+  accessToken: string | null;
+  expiresAt: string | null;
+  requiresPasswordChange: boolean;
   isLoadingUser: boolean;
   authError: string | null;
-  login: (credentialsOrRole?: Role | LoginRequest) => Promise<User | null>;
-  switchRole: (newRole: Role) => Promise<void>;
-  setRole: (newRole: Role) => void;
-  logout: () => void;
-  
-  // UI & Shell Convenience delegations (100% backward-compatible with existing 200+ components)
+
+  login: (credentials: LoginRequest) => Promise<LoginResult>;
+  refreshProfile: () => Promise<CurrentUserResponse | null>;
+  completePasswordChange: (payload: ChangePasswordRequest) => Promise<string>;
+  logout: () => Promise<void>;
+  logoutAll: () => Promise<void>;
+  setPendingRedirect: (hash: string | null) => void;
+  consumePendingRedirect: () => string | null;
+
+  // UI & Shell convenience delegations from UIContext
   toasts: ToastItem[];
   showToast: (arg1: string, arg2?: string, arg3?: 'success' | 'error' | 'info') => void;
   removeToast: (id: string) => void;
@@ -52,257 +76,222 @@ export interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Theme state
-  const [theme, setThemeState] = useState<ThemeMode>(() => {
-    const saved = localStorage.getItem('fcai_theme');
-    if (saved === 'dark' || saved === 'light') return saved;
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
-    return 'light';
-  });
+  const ui = useUI();
+  const session = useSyncExternalStore(authSession.subscribe, authSession.getSnapshot);
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    localStorage.setItem('fcai_theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => setThemeState(prev => (prev === 'light' ? 'dark' : 'light'));
-  const setTheme = (t: ThemeMode) => setThemeState(t);
-
-  // Active Role state
-  const [role, setRoleState] = useState<Role>(() => {
-    const hash = window.location.hash.replace(/^#\/?/, '');
-    const firstSeg = hash.split('/')[0] as Role;
-    if (['student', 'doctor', 'ta', 'admin', 'employee'].includes(firstSeg)) {
-      return firstSeg;
-    }
-    const saved = localStorage.getItem('fcai_active_role') as Role;
-    return saved || 'student';
-  });
-
-  // Authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('fcai_authenticated') === 'true';
-  });
-
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isLoadingUser, setIsLoadingUser] = useState<boolean>(true);
+  const [isLoadingUser, setIsLoadingUser] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // UI state
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  // Notifications belong to a future backend phase; keep empty in-memory array (no unconfirmed requests)
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadOverride, setUnreadOverride] = useState<number | null>(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
-    return localStorage.getItem('fcai-collapsed') === '1';
-  });
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
-  // Session expiry listener (401 event)
+  // Centralized 401 session expiry listener (emitted by apiClient when refresh fails)
   useEffect(() => {
     const handleUnauthorized = () => {
-      setIsAuthenticated(false);
-      setCurrentUser(null);
-      localStorage.removeItem('fcai_authenticated');
-      tokenStorage.remove();
-      showToast('Session Expired', 'Your institutional session has expired. Please sign in again.', 'info');
+      setAuthError('Your session has expired. Please sign in again.');
+      ui.showToast('Session Expired', 'Your institutional session expired. Please sign in again.', 'info');
       window.location.hash = '#/login';
     };
-    window.addEventListener('fcai:unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('fcai:unauthorized', handleUnauthorized);
-  }, []);
 
-  // Fetch current user profile when authenticated
-  const loadUserProfile = useCallback(async (targetRole: Role) => {
+    const handleForbidden = (event: Event) => {
+      const customEvent = event as CustomEvent<{ message?: string }>;
+      const msg = customEvent.detail?.message || 'You do not have permission to perform this action.';
+      ui.showToast('Access Denied', msg, 'error');
+    };
+
+    window.addEventListener('fcai:unauthorized', handleUnauthorized);
+    window.addEventListener('fcai:forbidden', handleForbidden);
+    return () => {
+      window.removeEventListener('fcai:unauthorized', handleUnauthorized);
+      window.removeEventListener('fcai:forbidden', handleForbidden);
+    };
+  }, [ui]);
+
+  /**
+   * GET /api/auth/me — loads full authenticated user profile into memory
+   */
+  const refreshProfile = useCallback(async (): Promise<CurrentUserResponse | null> => {
+    if (!authSession.getAccessToken()) return null;
     setIsLoadingUser(true);
     setAuthError(null);
     try {
-      // TODO: [Backend Integration] Replace with `await authApi.getCurrentUser(targetRole)`
-      const user = await api.getCurrentUser(targetRole);
-      setCurrentUser(user);
-    } catch (err: any) {
-      setAuthError(err?.message || 'Failed to fetch user profile.');
+      const profile = await api.auth.getMe();
+      authSession.setProfile(profile);
+      return profile;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load authenticated profile.';
+      setAuthError(message);
+      return null;
     } finally {
       setIsLoadingUser(false);
     }
   }, []);
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setCurrentUser(null);
-      setIsLoadingUser(false);
-      return;
-    }
-    loadUserProfile(role);
-    localStorage.setItem('fcai_active_role', role);
-  }, [role, isAuthenticated, loadUserProfile]);
+  /**
+   * POST /api/auth/login — authenticates Student or Staff and initializes in-memory session
+   */
+  const login = useCallback(
+    async (credentials: LoginRequest): Promise<LoginResult> => {
+      setIsLoadingUser(true);
+      setAuthError(null);
+      try {
+        const loginData = await api.auth.login(credentials);
+        const updatedSession = authSession.setFromLogin(loginData);
+        const routeRole = mapBackendRoleToRouteRole(loginData.role);
 
-  // Load initial notifications
-  useEffect(() => {
-    api.getNotifications().then(items => setNotifications(items)).catch(() => {});
+        // Enrich user details from GET /api/auth/me when password change is not blocking access
+        if (!loginData.requiresPasswordChange) {
+          try {
+            const profile = await api.auth.getMe();
+            authSession.setProfile(profile);
+          } catch {
+            // Keep validated login user data if /me fails transiently; authError is not fatal here
+          }
+        }
+
+        const latestUser = authSession.getSnapshot().user ?? updatedSession.user!;
+        ui.showToast(
+          loginData.requiresPasswordChange ? 'Password Change Required' : 'Signed In',
+          loginData.requiresPasswordChange
+            ? 'Please change your temporary password before continuing.'
+            : `Welcome back, ${latestUser.name}`,
+          loginData.requiresPasswordChange ? 'info' : 'success'
+        );
+
+        return {
+          user: latestUser,
+          backendRole: loginData.role,
+          routeRole,
+          requiresPasswordChange: loginData.requiresPasswordChange,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof ApiError || err instanceof Error
+          ? err.message
+          : 'Authentication failed. Please check your credentials.';
+        setAuthError(message);
+        throw err;
+      } finally {
+        setIsLoadingUser(false);
+      }
+    },
+    [ui]
+  );
+
+  /**
+   * POST /api/auth/change-password — updates password and clears mandatory first-login flag
+   */
+  const completePasswordChange = useCallback(
+    async (payload: ChangePasswordRequest): Promise<string> => {
+      const message = await api.auth.changePassword(payload);
+      authSession.clearPasswordChangeRequirement();
+      await refreshProfile();
+      return message;
+    },
+    [refreshProfile]
+  );
+
+  /**
+   * POST /api/auth/logout — revokes current device refresh token and clears in-memory session
+   */
+  const logout = useCallback(async (): Promise<void> => {
+    const currentRefresh = authSession.getRefreshToken();
+    try {
+      if (currentRefresh && authSession.getAccessToken()) {
+        await api.auth.logout(currentRefresh);
+      }
+    } catch {
+      // Always clear local in-memory session even if server revocation fails
+    } finally {
+      authSession.clear();
+      authSession.setPendingRedirect(null);
+      setNotifications([]);
+      setUnreadOverride(null);
+      ui.showToast('Signed Out', 'You have been signed out of your institutional session.', 'info');
+      window.location.hash = '#/login';
+    }
+  }, [ui]);
+
+  /**
+   * POST /api/auth/logout-all — revokes all active sessions across all devices
+   */
+  const logoutAll = useCallback(async (): Promise<void> => {
+    try {
+      if (authSession.getAccessToken()) {
+        const msg = await api.auth.logoutAll();
+        ui.showToast('All Sessions Revoked', msg, 'info');
+      }
+    } finally {
+      authSession.clear();
+      authSession.setPendingRedirect(null);
+      setNotifications([]);
+      setUnreadOverride(null);
+      window.location.hash = '#/login';
+    }
+  }, [ui]);
+
+  const markNotificationRead = useCallback(async (id: string) => {
+    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, unread: false } : n)));
   }, []);
 
-  /**
-   * Action: Authenticate user
-   */
-  const login = async (credentialsOrRole?: Role | LoginRequest): Promise<User | null> => {
-    setIsLoadingUser(true);
-    setAuthError(null);
-    try {
-      let targetRole: Role = role;
-      let user: User;
-
-      // TODO: [Backend Integration] Connect directly to `authApi.login(credentials)`
-      if (typeof credentialsOrRole === 'string') {
-        targetRole = credentialsOrRole;
-        user = await api.auth.login({ role: targetRole });
-      } else if (credentialsOrRole && typeof credentialsOrRole === 'object') {
-        targetRole = credentialsOrRole.role || role;
-        user = await api.auth.login(credentialsOrRole);
-      } else {
-        user = await api.auth.login({ role: targetRole });
-      }
-
-      setRoleState(user.role || targetRole);
-      localStorage.setItem('fcai_active_role', user.role || targetRole);
-      localStorage.setItem('fcai_authenticated', 'true');
-      setIsAuthenticated(true);
-      setCurrentUser(user);
-      setIsLoadingUser(false);
-      showToast('Signed In', `Welcome back, ${user.name}`);
-      return user;
-    } catch (err: any) {
-      setIsLoadingUser(false);
-      setAuthError(err?.message || 'Authentication failed.');
-      throw err;
-    }
-  };
-
-  /**
-   * Action: Switch active portal role
-   */
-  const switchRole = async (newRole: Role) => {
-    setRoleState(newRole);
-    localStorage.setItem('fcai_active_role', newRole);
-    if (isAuthenticated) {
-      await loadUserProfile(newRole);
-      showToast('Role Switched', `Now browsing as ${newRole.toUpperCase()} portal`, 'info');
-    }
-  };
-
-  const setRole = (newRole: Role) => {
-    switchRole(newRole);
-  };
-
-  /**
-   * Action: Logout
-   */
-  const logout = () => {
-    setIsAuthenticated(false);
-    setCurrentUser(null);
-    localStorage.removeItem('fcai_authenticated');
-    tokenStorage.remove();
-    // TODO: [Backend Integration] Connect to `authApi.logout()`
-    api.auth.logout().catch(() => {});
-    showToast('Logged Out', 'You have been signed out of your institutional session.');
-    window.location.hash = '#/home';
-  };
-
-  // Toast Helpers
-  const showToast = (arg1: string, arg2?: string, arg3?: 'success' | 'error' | 'info') => {
-    let title = arg1;
-    let message = arg2 || '';
-    let type: 'success' | 'error' | 'info' = 'success';
-
-    if (arg2 === 'success' || arg2 === 'error' || arg2 === 'info') {
-      type = arg2;
-      title = type.charAt(0).toUpperCase() + type.slice(1);
-      message = arg1;
-    } else if (arg3) {
-      type = arg3;
-    }
-
-    const id = `t_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    const newToast: ToastItem = { id, title, message, type };
-    setToasts(prev => [...prev, newToast]);
-    setTimeout(() => removeToast(id), 4500);
-  };
-
-  const removeToast = (id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  };
-
-  // Notification Helpers
-  const markNotificationRead = async (id: string) => {
-    await api.markNotificationRead(id);
-    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, unread: false } : n)));
-  };
-
-  const markAllNotificationsRead = async () => {
-    await api.markAllNotificationsRead();
+  const markAllNotificationsRead = useCallback(async () => {
     setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
     setUnreadOverride(0);
-    showToast('All Caught Up', 'All notifications marked as read.');
-  };
+  }, []);
 
   const unreadCountComputed = notifications.filter(n => n.unread).length;
   const unreadNotificationsCount = unreadOverride !== null ? unreadOverride : unreadCountComputed;
 
-  const setUnreadCount: React.Dispatch<React.SetStateAction<number>> = (val) => {
-    if (typeof val === 'function') {
-      setUnreadOverride(prev => (val as (prev: number) => number)(prev !== null ? prev : unreadCountComputed));
-    } else {
-      setUnreadOverride(val);
-    }
-  };
-
-  // Shell Helpers
-  const toggleSidebar = () => {
-    setIsSidebarCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem('fcai-collapsed', next ? '1' : '0');
-      return next;
-    });
-  };
-
-  const toggleMobileMenu = () => setIsMobileMenuOpen(prev => !prev);
-  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+  const setUnreadCount: React.Dispatch<React.SetStateAction<number>> = useCallback(
+    val => {
+      if (typeof val === 'function') {
+        setUnreadOverride(prev =>
+          (val as (prev: number) => number)(prev !== null ? prev : unreadCountComputed)
+        );
+      } else {
+        setUnreadOverride(val);
+      }
+    },
+    [unreadCountComputed]
+  );
 
   return (
     <AuthContext.Provider
       value={{
-        currentUser,
-        isAuthenticated,
-        role,
+        currentUser: session.user,
+        profile: session.profile,
+        isAuthenticated: session.isAuthenticated,
+        backendRole: session.backendRole,
+        role: session.routeRole,
+        accessToken: session.accessToken,
+        expiresAt: session.expiresAt,
+        requiresPasswordChange: session.requiresPasswordChange,
         isLoadingUser,
         authError,
         login,
-        switchRole,
-        setRole,
+        refreshProfile,
+        completePasswordChange,
         logout,
-        toasts,
-        showToast,
-        removeToast,
+        logoutAll,
+        setPendingRedirect: authSession.setPendingRedirect,
+        consumePendingRedirect: authSession.consumePendingRedirect,
+        toasts: ui.toasts,
+        showToast: ui.showToast,
+        removeToast: ui.removeToast,
         notifications,
         unreadNotificationsCount,
         setUnreadCount,
         markNotificationRead,
         markAllNotificationsRead,
-        isSidebarCollapsed,
-        toggleSidebar,
-        isMobileMenuOpen,
-        setIsMobileMenuOpen,
-        toggleMobileMenu,
-        closeMobileMenu,
-        theme,
-        setTheme,
-        toggleTheme,
+        isSidebarCollapsed: ui.isSidebarCollapsed,
+        toggleSidebar: ui.toggleSidebar,
+        isMobileMenuOpen: ui.isMobileDrawerOpen,
+        setIsMobileMenuOpen: ui.setIsMobileDrawerOpen,
+        toggleMobileMenu: ui.toggleMobileDrawer,
+        closeMobileMenu: ui.closeMobileDrawer,
+        theme: ui.theme,
+        setTheme: ui.setTheme,
+        toggleTheme: ui.toggleTheme,
       }}
     >
       {children}

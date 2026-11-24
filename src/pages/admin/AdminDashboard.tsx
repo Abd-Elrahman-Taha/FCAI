@@ -15,10 +15,11 @@ import { fakeApi } from '../../services/fakeApi';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';
+import { ActiveSemesterCard } from '../../components/common/ActiveSemesterCard';
 import { useAuth } from '../../context/AuthContext';
 
 export const AdminDashboard: React.FC = () => {
-  const { showToast } = useAuth();
+  const { showToast, currentUser } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,21 +52,26 @@ export const AdminDashboard: React.FC = () => {
             <div className="hero-chip mb-2">
               <Icon name="shield" size="sm" /> Faculty Executive Administration · Beni Suef University
             </div>
-            <h1 style={{ fontSize: '26px', fontWeight: 750 }}>College Administration Overview</h1>
+            <h1 style={{ fontSize: '26px', fontWeight: 750 }}>
+              {currentUser?.name ? `Welcome, ${currentUser.name}` : 'College Administration Overview'}
+            </h1>
             <p className="sub mt-2" style={{ fontSize: '14px' }}>
               Dean Office Portal &nbsp;•&nbsp; Academic Governance, Grade Approval, Fee Management &amp; Service Operations
             </p>
           </div>
-          <div className="row gap-2 mt-2">
-            <a href="#/admin/grade-approval" className="btn btn-ice">
-              <Icon name="checkCircle" /> Grade Approval Queue ({pendingGradePackages.length})
+          <div className="row gap-2 mt-2 wrap">
+            <a href="#/admin/academic-years" className="btn btn-ice">
+              <Icon name="calendar" /> Academic Years
             </a>
-            <a href="#/admin/fees" className="btn btn-hero-glass">
-              <Icon name="creditCard" /> Fee Operations
+            <a href="#/admin/levels" className="btn btn-hero-glass">
+              <Icon name="layers" /> Academic Levels
             </a>
           </div>
         </div>
       </div>
+
+      {/* Live Active Semester (GET /api/semesters/active) */}
+      <ActiveSemesterCard />
 
       {/* 6 Key Faculty KPIs */}
       <div className="grid g-6 mb-6">

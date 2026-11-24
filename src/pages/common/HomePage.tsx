@@ -11,7 +11,7 @@ import { AmbientMotionAura } from '../../components/common/AmbientMotionAura';
 import type { Role } from '../../types';
 
 export const HomePage: React.FC = () => {
-  const { role, switchRole, isAuthenticated } = useAuth();
+  const { role, isAuthenticated } = useAuth();
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
 
   const departments = [

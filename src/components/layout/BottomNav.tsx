@@ -10,7 +10,7 @@ interface BottomNavItem {
 }
 
 export const BottomNav: React.FC<{ activePath: string }> = ({ activePath }) => {
-  const { role, toggleMobileMenu, isMobileMenuOpen, closeMobileMenu, isAuthenticated, showToast } = useAuth();
+  const { role, toggleMobileMenu, isMobileMenuOpen, closeMobileMenu, isAuthenticated, setPendingRedirect, showToast } = useAuth();
 
   const configs: Record<Role, BottomNavItem[]> = {
     student: [
@@ -70,7 +70,7 @@ export const BottomNav: React.FC<{ activePath: string }> = ({ activePath }) => {
     if (path !== 'home' && !isAuthenticated) {
       e.preventDefault();
       showToast('Sign In Required', 'Please sign in to access your institutional portal.', 'info');
-      sessionStorage.setItem('fcai_redirect_after_login', `#/${role}/${path}`);
+      setPendingRedirect(`#/${role}/${path}`);
       window.location.hash = '#/login';
       return;
     }

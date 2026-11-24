@@ -1,38 +1,154 @@
-import React, { useState } from 'react';
+/**
+ * Screen 4: Verify Reset Token & Reset Password
+ *
+ * Connected strictly to confirmed Swagger endpoints:
+ * - Step 1: POST /api/auth/verify-reset-token ({ email, token })
+ * - Step 2: POST /api/auth/reset-password ({ email, token, newPassword, confirmNewPassword })
+ */
+
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { api } from '../../services/api';
+import { api, ApiError } from '../../services/api';
 import { Icon, FCAILogo } from '../../components/icons/Icon';
 
+function extractResetParams(): { email: string; token: string } {
+  const hashQueryIndex = window.location.hash.indexOf('?');
+  const rawQuery =
+    hashQueryIndex >= 0
+      ? window.location.hash.slice(hashQueryIndex + 1)
+      : window.location.search.replace(/^\?/, '');
+  const params = new URLSearchParams(rawQuery);
+  return {
+    email: params.get('email') || '',
+    token: params.get('token') || '',
+  };
+}
+
 export const ResetPassword: React.FC = () => {
+  const initialParams = extractResetParams();
+
+  const [email, setEmail] = useState(initialParams.email);
+  const [token, setToken] = useState(initialParams.token);
+  const [tokenVerified, setTokenVerified] = useState(false);
+  const [verifyingToken, setVerifyingToken] = useState(false);
+  const [verifyMessage, setVerifyMessage] = useState<string | null>(null);
+
   const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<ApiError | null>(null);
+  const [clientError, setClientError] = useState<string | null>(null);
 
   const rules = [
     { label: 'At least 8 characters', valid: newPassword.length >= 8 },
     { label: 'One uppercase letter', valid: /[A-Z]/.test(newPassword) },
     { label: 'One number', valid: /[0-9]/.test(newPassword) },
     { label: 'One special character (!@#$%^&*)', valid: /[!@#$%^&*(),.?":{}|<>]/.test(newPassword) },
-    { label: 'Passwords match', valid: newPassword !== '' && newPassword === confirmPassword }
+    { label: 'Passwords match', valid: newPassword !== '' && newPassword === confirmNewPassword }
   ];
 
   const allValid = rules.every(r => r.valid);
+  const fieldErrors = (field: string): string[] => apiError?.getFieldErrors(field) ?? [];
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleVerifyToken = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setApiError(null);
+    setClientError(null);
+    setVerifyMessage(null);
+
+    if (!email.trim() || !token.trim()) {
+      setClientError('Please provide both your email address and reset token.');
+      return;
+    }
+
+    setVerifyingToken(true);
+    try {
+      const msg = await api.auth.verifyResetToken({
+        email: email.trim(),
+        token: token.trim(),
+      });
+      setTokenVerified(true);
+      setVerifyMessage(msg);
+    } catch (err: unknown) {
+      setTokenVerified(false);
+      if (err instanceof ApiError) {
+        setApiError(err);
+      } else {
+        setClientError(err instanceof Error ? err.message : 'Failed to verify reset token.');
+      }
+    } finally {
+      setVerifyingToken(false);
+    }
+  };
+
+  // Auto-verify if both email and token were provided via query parameters
+  useEffect(() => {
+    const autoEmail = initialParams.email.trim();
+    const autoToken = initialParams.token.trim();
+    if (!autoEmail || !autoToken) return;
+
+    let cancelled = false;
+    api.auth
+      .verifyResetToken({ email: autoEmail, token: autoToken })
+      .then(msg => {
+        if (cancelled) return;
+        setTokenVerified(true);
+        setVerifyMessage(msg);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setTokenVerified(false);
+        if (err instanceof ApiError) {
+          setApiError(err);
+        } else {
+          setClientError(err instanceof Error ? err.message : 'Failed to verify reset token.');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleResetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!allValid) return;
+    setApiError(null);
+    setClientError(null);
+
+    if (!tokenVerified) {
+      setClientError('Please verify your reset token first.');
+      return;
+    }
+    if (!allValid) {
+      setClientError('Please satisfy all password requirements.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const token = new URLSearchParams(window.location.search).get('token') || 'demo_token';
-      await api.auth.resetPassword(token, newPassword);
+      const msg = await api.auth.resetPassword({
+        email: email.trim(),
+        token: token.trim(),
+        newPassword,
+        confirmNewPassword,
+      });
+      setSuccessMessage(msg);
       setIsSuccess(true);
-    } catch {
-      setIsSuccess(true);
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setApiError(err);
+      } else {
+        setClientError(err instanceof Error ? err.message : 'Failed to reset password.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
+  const bannerError = clientError || apiError?.message || null;
 
   return (
     <div className="auth min-h-screen bg-slate-100 dark:bg-[#020b17] text-slate-800 dark:text-slate-100">
@@ -52,9 +168,9 @@ export const ResetPassword: React.FC = () => {
         </a>
         <div style={{ position: 'relative', zIndex: 2, maxWidth: '440px' }}>
           <span className="hero-chip mb-4"><Icon name="key" size="sm" /> Password Reset</span>
-          <h2 style={{ fontSize: '30px', fontWeight: 750, color: '#fff', marginTop: '12px' }}>Choose a new password</h2>
+          <h2 style={{ fontSize: '30px', fontWeight: 750, color: '#fff', marginTop: '12px' }}>Verify token &amp; choose a new password</h2>
           <p style={{ color: '#c4dbf3', marginTop: '10px', fontSize: '15px' }}>
-            Set a secure new password for your FCAI BSU institutional profile.
+            Verify your reset token first, then set a secure new password for your FCAI BSU institutional profile.
           </p>
         </div>
       </motion.aside>
@@ -69,56 +185,127 @@ export const ResetPassword: React.FC = () => {
           {isSuccess ? (
             <div className="state" style={{ padding: 0 }}>
               <div className="state-art success"><Icon name="checkCircle" size="xl" /></div>
-              <h3 style={{ fontSize: '22px' }}>Password Successfully Reset</h3>
-              <p>You can now sign in with your new institutional password.</p>
+              <h3 style={{ fontSize: '22px' }}>Password Reset Complete</h3>
+              <p>{successMessage || 'You can now sign in with your new institutional password.'}</p>
               <a href="#/login" className="btn btn-primary mt-4">Sign In Now</a>
             </div>
           ) : (
             <>
-              <h1 style={{ fontSize: '26px', fontWeight: 750, letterSpacing: '-.02em' }}>Set new password</h1>
-              <p className="muted mt-2 mb-6">Create a strong password that meets our faculty credential standards.</p>
+              <a href="#/login" className="card-link mb-4 inline-flex"><Icon name="arrowLeft" size="sm" /> Back to sign in</a>
+              <h1 style={{ fontSize: '26px', fontWeight: 750, letterSpacing: '-.02em', marginTop: '6px' }}>
+                {tokenVerified ? 'Set new password' : 'Verify reset token'}
+              </h1>
+              <p className="muted mt-2 mb-5">
+                {tokenVerified
+                  ? 'Your reset token has been verified. Enter your new password below.'
+                  : 'Enter your institutional email and the reset token to verify it with the server.'}
+              </p>
 
-              <form className="col gap-4" onSubmit={handleSubmit}>
-                <div className="field">
-                  <label className="label">New Password</label>
-                  <input
-                    className="input"
-                    type="password"
-                    placeholder="Enter new password"
-                    value={newPassword}
-                    onChange={e => setNewPassword(e.target.value)}
-                    required
-                  />
+              {bannerError && (
+                <div className="alert alert-danger mb-4" role="alert">
+                  <Icon name="alertCircle" />
+                  <div><b>Error</b><p>{bannerError}</p></div>
                 </div>
+              )}
 
-                <div className="field">
-                  <label className="label">Confirm New Password</label>
-                  <input
-                    className="input"
-                    type="password"
-                    placeholder="Re-enter new password"
-                    value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
-                    required
-                  />
+              {verifyMessage && tokenVerified && (
+                <div className="alert alert-success mb-4">
+                  <Icon name="checkCircle" />
+                  <div><b>Token Verified</b><p>{verifyMessage}</p></div>
                 </div>
+              )}
 
-                <div className="info-tile">
-                  <small className="fw-6" style={{ color: 'var(--text)' }}>Password requirements:</small>
-                  <div className="pw-rules mt-2">
-                    {rules.map((rule, idx) => (
-                      <div key={idx} className={rule.valid ? 'ok' : ''}>
-                        <Icon name={rule.valid ? 'checkCircle' : 'alertCircle'} size="sm" />
-                        {rule.label}
-                      </div>
+              {!tokenVerified ? (
+                <form className="col gap-4" onSubmit={handleVerifyToken} noValidate>
+                  <div className="field">
+                    <label className="label" htmlFor="rp-email">Institutional Email</label>
+                    <input
+                      id="rp-email"
+                      className="input"
+                      type="email"
+                      placeholder="name@fcai.bsu"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      required
+                    />
+                    {fieldErrors('email').map((msg, i) => (
+                      <span key={i} className="text-xs text-red-600 dark:text-red-400">{msg}</span>
                     ))}
                   </div>
-                </div>
 
-                <button className="btn btn-primary btn-lg btn-block mt-2" type="submit" disabled={isLoading || !allValid}>
-                  {isLoading ? 'Resetting…' : 'Reset Password'}
-                </button>
-              </form>
+                  <div className="field">
+                    <label className="label" htmlFor="rp-token">Reset Token</label>
+                    <input
+                      id="rp-token"
+                      className="input"
+                      type="text"
+                      placeholder="Paste your reset token"
+                      value={token}
+                      onChange={e => setToken(e.target.value)}
+                      required
+                    />
+                    {fieldErrors('token').map((msg, i) => (
+                      <span key={i} className="text-xs text-red-600 dark:text-red-400">{msg}</span>
+                    ))}
+                  </div>
+
+                  <button className="btn btn-primary btn-lg btn-block mt-2" type="submit" disabled={verifyingToken}>
+                    {verifyingToken ? 'Verifying Token…' : 'Verify Reset Token'}
+                  </button>
+                </form>
+              ) : (
+                <form className="col gap-4" onSubmit={handleResetSubmit} noValidate>
+                  <div className="field">
+                    <label className="label" htmlFor="rp-new-pw">New Password</label>
+                    <input
+                      id="rp-new-pw"
+                      className="input"
+                      type="password"
+                      placeholder="Enter new password"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      autoComplete="new-password"
+                      required
+                    />
+                    {fieldErrors('newPassword').map((msg, i) => (
+                      <span key={i} className="text-xs text-red-600 dark:text-red-400">{msg}</span>
+                    ))}
+                  </div>
+
+                  <div className="field">
+                    <label className="label" htmlFor="rp-confirm-pw">Confirm New Password</label>
+                    <input
+                      id="rp-confirm-pw"
+                      className="input"
+                      type="password"
+                      placeholder="Re-enter new password"
+                      value={confirmNewPassword}
+                      onChange={e => setConfirmNewPassword(e.target.value)}
+                      autoComplete="new-password"
+                      required
+                    />
+                    {fieldErrors('confirmNewPassword').map((msg, i) => (
+                      <span key={i} className="text-xs text-red-600 dark:text-red-400">{msg}</span>
+                    ))}
+                  </div>
+
+                  <div className="info-tile">
+                    <small className="fw-6" style={{ color: 'var(--text)' }}>Password requirements:</small>
+                    <div className="pw-rules mt-2">
+                      {rules.map((rule, idx) => (
+                        <div key={idx} className={rule.valid ? 'ok' : ''}>
+                          <Icon name={rule.valid ? 'checkCircle' : 'alertCircle'} size="sm" />
+                          {rule.label}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button className="btn btn-primary btn-lg btn-block mt-2" type="submit" disabled={isLoading || !allValid}>
+                    {isLoading ? 'Resetting…' : 'Reset Password'}
+                  </button>
+                </form>
+              )}
             </>
           )}
         </div>

@@ -1,16 +1,18 @@
 /**
  * Central Services Index
- * 
- * Provides unified and domain-specific exports for the entire frontend application.
+ *
+ * Exports the shared API client, in-memory session store, confirmed endpoints,
+ * and integrated backend domain services.
  */
 
-export { api, fakeApi, ApiError, apiClient, tokenStorage } from './api';
-export { authService } from './authService';
-export { studentService } from './studentService';
-export { doctorService } from './doctorService';
-export { taService } from './taService';
-export { adminService } from './adminService';
-export { superAdminService } from './superAdminService';
-export { aiService } from './aiService';
-export { mockDataApi } from './mockDataApi';
+export {
+  api,
+  ApiError,
+  apiClient,
+  authSession,
+  authService,
+  academicYearService,
+  academicLevelService,
+  semesterService,
+} from './api';
 export * from './endpoints';

@@ -103,7 +103,7 @@ export const AIAssistantLandingPage: React.FC = () => {
                 onClick={() => setSelectedPromptIndex(idx)}
                 className={`p-3.5 rounded-2xl text-left text-xs transition-all cursor-pointer border ${
                   selectedPromptIndex === idx
-                    ? 'bg-[#052659]/60 border-sky-400 text-slate-900 dark:text-white shadow-md shadow-sky-500/20 ring-1 ring-sky-400/40'
+                    ? 'bg-cyan-500/60 border-cyan-400 text-slate-900 dark:text-white shadow-md shadow-cyan-500/20 ring-1 ring-cyan-400/40'
                     : 'bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-cyan-500/20 text-slate-600 dark:text-slate-400 hover:border-cyan-400/40'
                 }`}
               >

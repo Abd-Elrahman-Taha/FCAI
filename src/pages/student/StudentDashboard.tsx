@@ -18,8 +18,11 @@ import { LiveCampusPulse } from '../../components/common/LiveCampusPulse';
 import { ScrollReveal } from '../../components/common/ScrollReveal';
 import { NeonRadialGauge } from '../../components/common/NeonRadialGauge';
 import { AnimatedCounter } from '../../components/common/AnimatedCounter';
+import { ActiveSemesterCard } from '../../components/common/ActiveSemesterCard';
+import { useAuth } from '../../context/AuthContext';
 
 export const StudentDashboard: React.FC = () => {
+  const { currentUser } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'schedule' | 'assignments' | 'alerts'>('schedule');
@@ -58,7 +61,7 @@ export const StudentDashboard: React.FC = () => {
                 <Icon name="graduation" size="sm" /> Fall Semester 2026 · Week 4 Active
               </div>
               <h1 style={{ fontSize: '26px', fontWeight: 750, color: '#fff' }}>
-                Welcome back, {student.name}
+                Welcome back, {currentUser?.name || student.name}
               </h1>
               <div className="sub mt-2 row gap-2 wrap align-center" style={{ fontSize: '13px', color: '#c4dbf3' }}>
                 <span>Student ID: <b className="mono" style={{ color: '#fff' }}>{student.studentCode}</b></span>
@@ -81,6 +84,11 @@ export const StudentDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+      </ScrollReveal>
+
+      {/* 1.5 Live Active Semester & Operational Windows (GET /api/semesters/active) */}
+      <ScrollReveal direction="up" delay={0.08}>
+        <ActiveSemesterCard />
       </ScrollReveal>
 
       {/* 2. Live Academic Stream & Interactive Frequency Visualizer */}

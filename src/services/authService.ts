@@ -1,214 +1,159 @@
 /**
- * Authentication & Identity Service
- * 
- * Handles user login, registration, JWT token storage, password recovery,
- * and user profile fetching.
- * 
- * Resilient Architecture:
- * - Uses in-memory Mock Data when `isMockApiActive()` is true
- * - Dispatches to real REST backend when real API is active
- * - Gracefully falls back to mock data if the backend server is unreachable
+ * Authentication Service — Real Backend Integration
+ *
+ * Strictly uses the 9 confirmed Swagger endpoints under /api/auth.
+ * Zero mock fallbacks. Zero browser storage.
  */
 
-import { config, isMockApiActive } from '../config/env';
-import { apiClient, tokenStorage } from './apiClient';
-import { mockDataApi } from './mockDataApi';
-import type { User, Role, NotificationItem } from '../types';
-import type { LoginRequest, LoginResponse, RegisterRequest } from '../types/api';
+import { apiClient, ApiError } from './apiClient';
+import { AUTH_ENDPOINTS } from './endpoints';
+import type {
+  ChangePasswordRequest,
+  CurrentUserResponse,
+  ForgotPasswordRequest,
+  ForgotPasswordResponse,
+  LoginRequest,
+  LoginResponse,
+  LogoutRequest,
+  RefreshTokenRequest,
+  RefreshTokenResponse,
+  ResetPasswordRequest,
+  VerifyResetTokenRequest,
+} from '../types/api/auth.types';
+import { isValidUserRole } from '../types/api/auth.types';
 
 export const authService = {
   /**
-   * Log in user with institutional credentials (Student Code, National ID, or Email)
+   * POST /api/auth/login
+   * Authenticates either a Student ({ nationalId, studentCode, password })
+   * or Staff ({ email, password }).
    */
-  async login(credentials: LoginRequest): Promise<User> {
-    // 1. If running in mock mode, authenticate instantly with mock database
-    if (isMockApiActive()) {
-      return mockDataApi.login({
-        role: credentials.role,
-        id: credentials.studentCode || credentials.nationalId,
-        email: credentials.email,
-        password: credentials.password
-      });
+  async login(credentials: LoginRequest): Promise<LoginResponse> {
+    const data = await apiClient.post<LoginResponse>(AUTH_ENDPOINTS.LOGIN, credentials, {
+      skipAuth: true,
+      skipAuthRefresh: true,
+    });
+
+    if (!data || !data.token || !data.refreshToken) {
+      throw new ApiError('Authentication response was missing required session tokens.', 500, null, data);
     }
 
-    // 2. Attempt real backend REST API request
-    try {
-      const res = await apiClient.post<LoginResponse | User>('/auth/login', credentials);
-      
-      // If backend returns a token, persist it
-      if ('token' in res && res.token) {
-        tokenStorage.set(res.token);
-        if (res.refreshToken) {
-          tokenStorage.setRefreshToken(res.refreshToken);
-        }
-        return res.user;
-      }
-      
-      return res as User;
-    } catch (err: any) {
-      // 3. Fallback: If backend is unreachable or not running, gracefully use mock account
-      if (err.isNetworkError || err.message?.includes('Failed to fetch') || err.message?.includes('Network request failed')) {
-        console.warn(`[FCAI Auth] Backend at ${config.apiBaseUrl} is unreachable (${err.message}). Logging in with demo profile.`);
-        return mockDataApi.login({
-          role: credentials.role,
-          id: credentials.studentCode || credentials.nationalId,
-          email: credentials.email,
-          password: credentials.password
-        });
-      }
-      throw err;
+    if (!isValidUserRole(data.role)) {
+      throw new ApiError(
+        `Unsupported user role returned by server: "${String(data.role)}".`,
+        403,
+        null,
+        data
+      );
     }
+
+    return data;
   },
 
   /**
-   * Register a new student or staff account
+   * POST /api/auth/refresh
+   * Exchanges current accessToken + refreshToken for a rotated token pair.
    */
-  async register(data: RegisterRequest): Promise<{ success: boolean; user?: User; message?: string }> {
-    if (isMockApiActive()) {
-      return { success: true, message: 'Institutional account request queued for Student Affairs verification.' };
+  async refresh(payload: RefreshTokenRequest): Promise<RefreshTokenResponse> {
+    const data = await apiClient.post<RefreshTokenResponse>(AUTH_ENDPOINTS.REFRESH, payload, {
+      skipAuth: true,
+      skipAuthRefresh: true,
+    });
+
+    if (!data || !data.token || !data.refreshToken) {
+      throw new ApiError('Token refresh response did not contain rotated tokens.', 401, null, data);
     }
-    try {
-      return await apiClient.post('/auth/register', data);
-    } catch (err: any) {
-      if (err.isNetworkError || err.message?.includes('Failed to fetch')) {
-        return { success: true, message: 'Institutional account request queued for Student Affairs verification (Offline Mode).' };
-      }
-      throw err;
-    }
+
+    return data;
   },
 
   /**
-   * Fetch current authenticated user profile
+   * POST /api/auth/logout
+   * Revokes the current device's refresh token.
    */
-  async getCurrentUser(targetRole?: Role): Promise<User> {
-    if (isMockApiActive()) {
-      return mockDataApi.getCurrentUser(targetRole || 'student');
-    }
-    try {
-      const params = targetRole ? { role: targetRole } : undefined;
-      return await apiClient.get<User>('/auth/me', params);
-    } catch (err: any) {
-      if (err.isNetworkError || err.message?.includes('Failed to fetch')) {
-        return mockDataApi.getCurrentUser(targetRole || 'student');
-      }
-      throw err;
-    }
+  async logout(refreshToken: string): Promise<string> {
+    const payload: LogoutRequest = { refreshToken };
+    const envelope = await apiClient.postEnvelope<unknown>(AUTH_ENDPOINTS.LOGOUT, payload, {
+      skipAuthRefresh: true,
+    });
+    return envelope.message || 'Signed out successfully.';
   },
 
   /**
-   * Sign out from active institutional session
+   * POST /api/auth/logout-all
+   * Revokes all active refresh tokens for the authenticated user across all devices.
    */
-  async logout(): Promise<void> {
-    try {
-      if (!isMockApiActive()) {
-        await apiClient.post('/auth/logout');
-      }
-    } catch {
-      // Ignore network errors on logout
-    } finally {
-      tokenStorage.remove();
-    }
+  async logoutAll(): Promise<string> {
+    const envelope = await apiClient.postEnvelope<unknown>(AUTH_ENDPOINTS.LOGOUT_ALL, undefined, {
+      skipAuthRefresh: true,
+    });
+    return envelope.message || 'Signed out from all devices.';
   },
 
   /**
-   * Request password reset link via institutional email
+   * GET /api/auth/me
+   * Fetches the currently authenticated user's profile.
    */
-  async forgotPassword(email: string): Promise<{ success: boolean; message: string }> {
-    if (isMockApiActive()) {
-      return { success: true, message: 'Password reset link sent to your institutional email.' };
+  async getMe(): Promise<CurrentUserResponse> {
+    const data = await apiClient.get<CurrentUserResponse>(AUTH_ENDPOINTS.ME);
+    if (!data || !isValidUserRole(data.role)) {
+      throw new ApiError('Invalid user profile returned by /api/auth/me.', 500, null, data);
     }
-    try {
-      return await apiClient.post('/auth/forgot-password', { email });
-    } catch (err: any) {
-      if (err.isNetworkError || err.message?.includes('Failed to fetch')) {
-        return { success: true, message: 'Password reset link sent (Offline Mode).' };
-      }
-      throw err;
-    }
+    return data;
   },
 
   /**
-   * Complete password reset with verification token
+   * POST /api/auth/change-password
+   * Changes the authenticated user's password (also used for mandatory first-login password change).
    */
-  async resetPassword(token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
-    if (isMockApiActive()) {
-      return { success: true, message: 'Institutional password successfully updated.' };
-    }
-    try {
-      return await apiClient.post('/auth/reset-password', { token, newPassword });
-    } catch (err: any) {
-      if (err.isNetworkError || err.message?.includes('Failed to fetch')) {
-        return { success: true, message: 'Institutional password successfully updated.' };
-      }
-      throw err;
-    }
+  async changePassword(payload: ChangePasswordRequest): Promise<string> {
+    const envelope = await apiClient.postEnvelope<unknown>(AUTH_ENDPOINTS.CHANGE_PASSWORD, payload);
+    return envelope.message || 'Password updated successfully.';
   },
 
   /**
-   * Complete mandatory first-time login security setup
+   * POST /api/auth/forgot-password
+   * Requests a password reset token for the given email.
+   * Returns the honest backend response ({ message, resetToken }) without fabricating tokens.
    */
-  async completeFirstLoginSetup(newPassword: string, phone: string): Promise<{ success: boolean; user: User }> {
-    if (isMockApiActive()) {
-      const user = await mockDataApi.getCurrentUser('student');
-      user.isFirstLogin = false;
-      return { success: true, user };
-    }
-    try {
-      return await apiClient.post('/auth/first-login-setup', { newPassword, phone });
-    } catch (err: any) {
-      if (err.isNetworkError || err.message?.includes('Failed to fetch')) {
-        const user = await mockDataApi.getCurrentUser('student');
-        user.isFirstLogin = false;
-        return { success: true, user };
-      }
-      throw err;
-    }
+  async forgotPassword(payload: ForgotPasswordRequest): Promise<{
+    envelopeMessage: string;
+    data: ForgotPasswordResponse | null;
+  }> {
+    const envelope = await apiClient.postEnvelope<ForgotPasswordResponse>(
+      AUTH_ENDPOINTS.FORGOT_PASSWORD,
+      payload,
+      { skipAuth: true, skipAuthRefresh: true }
+    );
+    return {
+      envelopeMessage: envelope.message || '',
+      data: envelope.data,
+    };
   },
 
   /**
-   * Fetch user notifications
+   * POST /api/auth/verify-reset-token
+   * Verifies whether an email + reset token pair is valid before resetting password.
    */
-  async getNotifications(): Promise<NotificationItem[]> {
-    if (isMockApiActive()) {
-      return mockDataApi.getNotifications();
-    }
-    try {
-      return await apiClient.get<NotificationItem[]>('/notifications');
-    } catch (err: any) {
-      if (err.isNetworkError || err.message?.includes('Failed to fetch')) {
-        return mockDataApi.getNotifications();
-      }
-      throw err;
-    }
+  async verifyResetToken(payload: VerifyResetTokenRequest): Promise<string> {
+    const envelope = await apiClient.postEnvelope<unknown>(
+      AUTH_ENDPOINTS.VERIFY_RESET_TOKEN,
+      payload,
+      { skipAuth: true, skipAuthRefresh: true }
+    );
+    return envelope.message || 'Reset token verified.';
   },
 
   /**
-   * Mark single notification as read
+   * POST /api/auth/reset-password
+   * Completes password reset using a verified reset token.
    */
-  async markNotificationRead(notificationId: string): Promise<void> {
-    if (isMockApiActive()) {
-      await mockDataApi.markNotificationRead(notificationId);
-      return;
-    }
-    try {
-      await apiClient.patch(`/notifications/${notificationId}/read`);
-    } catch {
-      // Ignore network errors
-    }
+  async resetPassword(payload: ResetPasswordRequest): Promise<string> {
+    const envelope = await apiClient.postEnvelope<unknown>(
+      AUTH_ENDPOINTS.RESET_PASSWORD,
+      payload,
+      { skipAuth: true, skipAuthRefresh: true }
+    );
+    return envelope.message || 'Password has been reset successfully.';
   },
-
-  /**
-   * Mark all notifications as read
-   */
-  async markAllNotificationsRead(): Promise<void> {
-    if (isMockApiActive()) {
-      await mockDataApi.markAllNotificationsRead();
-      return;
-    }
-    try {
-      await apiClient.patch('/notifications/read-all');
-    } catch {
-      // Ignore network errors
-    }
-  }
 };

@@ -1,86 +1,27 @@
 /**
- * Screen 1 & Enrollment: Institutional Portal Sign-In & Sign-Up (Sliding Split-Screen)
+ * Screen 1: Institutional Portal Sign-In (Sliding Split-Screen)
  *
- * - Sign In Mode: Brand Showcase Panel on Left (0%), Form Panel on Right (50%)
- * - Sign Up Mode: Brand Showcase Panel slides to Right (+100%), Form Panel slides to Left (-100%)
+ * Connected strictly to POST /api/auth/login:
+ * - Student Login: { nationalId, studentCode, password }
+ * - Staff Login (Admin, Doctor, TeachingAssistant, Employee): { email, password }
+ *
+ * Zero hardcoded credentials. Zero mock fallbacks. Zero browser storage.
  */
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '../../context/AuthContext';
-import { api } from '../../services/api';
+import { useAuth, type LoginResult } from '../../context/AuthContext';
+import { ApiError } from '../../services/api';
 import { Icon, FCAILogo } from '../../components/icons/Icon';
 import { EducationHeroIllustration } from '../../components/auth/EducationHeroIllustration';
-import type { Role } from '../../types';
-
-interface EnrollmentQuickAccount {
-  role: Role;
-  roleLabel: string;
-  shortLabel: string;
-  name: string;
-  meta: string;
-  icon: string;
-  code?: string;
-  nationalId?: string;
-  email?: string;
-}
-
-const ENROLLMENTS: EnrollmentQuickAccount[] = [
-  {
-    role: 'student',
-    roleLabel: 'Student Portal',
-    shortLabel: 'Student',
-    name: 'Ahmed Hassan',
-    meta: 'Level 3 · CS',
-    icon: 'graduation',
-    code: '2021170045',
-    nationalId: '30302152201234'
-  },
-  {
-    role: 'doctor',
-    roleLabel: 'Doctor Portal',
-    shortLabel: 'Doctor',
-    name: 'Dr. Mona',
-    meta: 'Computer Science',
-    icon: 'briefcase',
-    email: 'mona.abdelrahman@fcai.bsu.edu.eg'
-  },
-  {
-    role: 'ta',
-    roleLabel: 'TA Portal',
-    shortLabel: 'TA',
-    name: 'Eng. Youssef',
-    meta: 'CS Department',
-    icon: 'users',
-    email: 'youssef.khaled@fcai.bsu.edu.eg'
-  },
-  {
-    role: 'admin',
-    roleLabel: 'College Admin',
-    shortLabel: 'Admin',
-    name: 'Tarek Fathy',
-    meta: 'Executive Admin',
-    icon: 'shieldCheck',
-    email: 'tarek.fathy@fcai.bsu.edu.eg'
-  },
-  {
-    role: 'employee',
-    roleLabel: 'Affairs Staff',
-    shortLabel: 'Staff',
-    name: 'Salma Ibrahim',
-    meta: 'Student Affairs',
-    icon: 'idCard',
-    email: 'salma.ibrahim@fcai.bsu.edu.eg'
-  }
-];
 
 export interface LoginProps {
-  onLoginSuccess?: () => void;
+  onLoginSuccess?: (result: LoginResult) => void;
   initialMode?: 'signin' | 'signup';
 }
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => {
-  const { login, theme, toggleTheme, showToast } = useAuth();
+  const { login, theme, toggleTheme } = useAuth();
 
   const detectModeFromHash = (): 'signin' | 'signup' => {
     if (initialMode) return initialMode;
@@ -90,13 +31,14 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
   };
 
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>(detectModeFromHash);
+  const [prevInitialMode, setPrevInitialMode] = useState(initialMode);
 
-  // Sync mode when initialMode prop or URL hash changes
-  useEffect(() => {
+  if (initialMode !== prevInitialMode) {
+    setPrevInitialMode(initialMode);
     if (initialMode) {
       setAuthMode(initialMode);
     }
-  }, [initialMode]);
+  }
 
   useEffect(() => {
     const onHash = () => {
@@ -112,8 +54,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
   }, []);
 
   const switchAuthMode = (targetMode: 'signin' | 'signup') => {
-    setError(null);
-    setIsSubmitted(false);
+    setApiError(null);
     setAuthMode(targetMode);
     const targetHash = targetMode === 'signup' ? '#/signup' : '#/login';
     if (window.location.hash !== targetHash) {
@@ -121,145 +62,79 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
     }
   };
 
-  // Sign-In Form State
-  const [isStaff, setIsStaff] = useState(false);
-  const [selectedStaffRole, setSelectedStaffRole] = useState<Role>('doctor');
-  const [signingInRole, setSigningInRole] = useState<Role | null>(null);
-  const [nationalId, setNationalId] = useState('30302152201234');
-  const [studentCode, setStudentCode] = useState('2021170045');
-  const [email, setEmail] = useState('mona.abdelrahman@fcai.bsu.edu.eg');
-  const [password, setPassword] = useState('••••••••••••');
+  // Sign-In Form State (no pre-filled hardcoded credentials)
+  const [loginType, setLoginType] = useState<'student' | 'staff'>('student');
+  const [nationalId, setNationalId] = useState('');
+  const [studentCode, setStudentCode] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
 
-  // Sign-Up Form State
-  const [signupAccountType, setSignupAccountType] = useState<'student' | 'staff'>('student');
-  const [signupFullName, setSignupFullName] = useState('');
-  const [signupNationalId, setSignupNationalId] = useState('');
-  const [signupAcademicCode, setSignupAcademicCode] = useState('');
-  const [signupEmail, setSignupEmail] = useState('');
-  const [signupDept, setSignupDept] = useState('AI');
-  const [signupPassword, setSignupPassword] = useState('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
-
-  // Shared Status State
-  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<ApiError | null>(null);
+  const [clientError, setClientError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleQuickSignIn = async (targetRole: Role) => {
-    setSigningInRole(targetRole);
-    setError(null);
-
-    if (targetRole === 'student') {
-      setIsStaff(false);
-      setNationalId('30302152201234');
-      setStudentCode('2021170045');
-    } else {
-      setIsStaff(true);
-      setSelectedStaffRole(targetRole);
-      if (targetRole === 'doctor') setEmail('mona.abdelrahman@fcai.bsu.edu.eg');
-      else if (targetRole === 'ta') setEmail('youssef.khaled@fcai.bsu.edu.eg');
-      else if (targetRole === 'admin') setEmail('tarek.fathy@fcai.bsu.edu.eg');
-      else if (targetRole === 'employee') setEmail('salma.ibrahim@fcai.bsu.edu.eg');
-    }
-    setPassword('••••••••••••');
-
-    try {
-      await login({ role: targetRole });
-      if (onLoginSuccess) {
-        onLoginSuccess();
-      } else {
-        const redirect = sessionStorage.getItem('fcai_redirect_after_login');
-        if (redirect) {
-          sessionStorage.removeItem('fcai_redirect_after_login');
-          window.location.hash = redirect;
-        } else {
-          window.location.hash = `#/${targetRole}/dashboard`;
-        }
-      }
-    } catch (err: any) {
-      setError(err?.message || 'Authentication failed. Please verify credentials.');
-      setSigningInRole(null);
-    }
-  };
+  const fieldErrors = (field: string): string[] => apiError?.getFieldErrors(field) ?? [];
 
   const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
+    setApiError(null);
+    setClientError(null);
 
-    try {
-      const targetRole: Role = isStaff ? selectedStaffRole : 'student';
-      await login({
-        email: isStaff ? email : undefined,
-        studentCode: !isStaff ? studentCode : undefined,
-        nationalId: !isStaff ? nationalId : undefined,
-        password,
-        role: targetRole,
-        rememberMe
-      });
-      if (onLoginSuccess) {
-        onLoginSuccess();
-      } else {
-        const redirect = sessionStorage.getItem('fcai_redirect_after_login');
-        if (redirect) {
-          sessionStorage.removeItem('fcai_redirect_after_login');
-          window.location.hash = redirect;
-        } else {
-          window.location.hash = `#/${targetRole}/dashboard`;
-        }
+    if (loginType === 'student') {
+      if (!nationalId.trim() || !studentCode.trim() || !password) {
+        setClientError('Please enter your National ID, Student Code, and Password.');
+        return;
       }
-    } catch (err: any) {
-      setError(err?.message || 'Authentication failed. Please verify credentials.');
-    } finally {
-      setIsLoading(false);
+    } else {
+      if (!email.trim() || !password) {
+        setClientError('Please enter your institutional email and password.');
+        return;
+      }
     }
-  };
 
-  const handleSignUpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!signupNationalId || signupNationalId.length < 14) {
-      setError('Please provide a valid 14-digit Egyptian National ID.');
-      return;
-    }
-    if (!signupEmail.includes('@')) {
-      setError('Please provide a valid institutional or personal email address.');
-      return;
-    }
-    setError(null);
     setIsLoading(true);
-
     try {
-      await api.auth.register({
-        name: signupFullName,
-        email: signupEmail,
-        password: signupPassword,
-        nationalId: signupNationalId,
-        studentCode: signupAcademicCode,
-        role: signupAccountType === 'staff' ? 'doctor' : 'student',
-        department: signupDept
-      });
-      setIsSubmitted(true);
-      showToast('Enrollment Request Received', 'Your institutional profile request is in verification with Student Affairs.');
-    } catch {
-      setIsSubmitted(true);
-      showToast('Enrollment Request Received', 'Your institutional profile request is in verification with Student Affairs.');
+      const payload =
+        loginType === 'student'
+          ? {
+              nationalId: nationalId.trim(),
+              studentCode: studentCode.trim(),
+              password,
+            }
+          : {
+              email: email.trim(),
+              password,
+            };
+
+      const result = await login(payload);
+
+      if (onLoginSuccess) {
+        onLoginSuccess(result);
+      } else if (result.requiresPasswordChange) {
+        window.location.hash = '#/first-login';
+      } else {
+        window.location.hash = `#/${result.routeRole}/dashboard`;
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setApiError(err);
+      } else {
+        setClientError(err instanceof Error ? err.message : 'Authentication failed.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
+  const bannerError = clientError || apiError?.message || null;
 
   return (
     <div className={`auth-sliding-shell ${authMode === 'signup' ? 'is-signup' : ''}`}>
-      {/* =====================================================================
-          PANEL 1: BRAND SHOWCASE PANEL
-          - Sign In Mode: Sits on the LEFT side (0%)
-          - Sign Up Mode: Smoothly slides across to the RIGHT side (+100%)
-          ===================================================================== */}
+      {/* PANEL 1: BRAND SHOWCASE PANEL */}
       <aside className="auth-sliding-art" aria-label="FCAI BSU Institutional Showcase">
         <div className="cyber-grid-overlay" style={{ opacity: 0.45 }} />
 
-        {/* Brand Identity Header */}
         <div className="row-between" style={{ position: 'relative', zIndex: 2 }}>
           <a
             href="#/home"
@@ -289,16 +164,14 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
               color: '#C1E8FF'
             }}
           >
-            2026 / 2027
+            Official Portal
           </span>
         </div>
 
-        {/* Centerpiece Illustration */}
         <div style={{ position: 'relative', zIndex: 2, margin: 'auto 0' }}>
           <EducationHeroIllustration />
         </div>
 
-        {/* Dynamic Bottom Copy + Sliding Trigger Banner */}
         <div style={{ position: 'relative', zIndex: 2 }}>
           <AnimatePresence mode="wait">
             {authMode === 'signin' ? (
@@ -316,16 +189,16 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
                   Your academic life, unified in one trusted place.
                 </h2>
                 <p style={{ color: '#b8d4f2', marginTop: '8px', fontSize: '14px', lineHeight: 1.55, maxWidth: '480px' }}>
-                  Courses, synchronized timetables, geofenced QR attendance, grades, and AI study tools — secured with your institutional account.
+                  Sign in with your verified FCAI BSU institutional credentials. Your role and portal access are assigned securely by the backend.
                 </p>
 
                 <div className="auth-switch-banner">
                   <div>
                     <b style={{ display: 'block', fontSize: '13.5px', color: '#ffffff' }}>
-                      New student or faculty member?
+                      Need an institutional account?
                     </b>
                     <span style={{ fontSize: '12px', color: '#94b8df' }}>
-                      Slide over to submit your institutional enrollment request.
+                      View account provisioning &amp; enrollment guidance.
                     </span>
                   </div>
                   <button
@@ -333,7 +206,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
                     className="auth-switch-banner-btn"
                     onClick={() => switchAuthMode('signup')}
                   >
-                    <span>Sign Up</span>
+                    <span>Enrollment Info</span>
                     <Icon name="arrowRight" size="sm" />
                   </button>
                 </div>
@@ -347,22 +220,22 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
                 transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
               >
                 <span className="hero-chip" style={{ marginBottom: '12px' }}>
-                  <Icon name="sparkles" size="sm" /> Institutional Admission &amp; Verification
+                  <Icon name="info" size="sm" /> Institutional Account Provisioning
                 </span>
                 <h2 style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em', color: '#ffffff', lineHeight: 1.2 }}>
-                  Join the next generation of AI &amp; Computing innovators.
+                  Verified accounts managed by College Administration.
                 </h2>
                 <p style={{ color: '#b8d4f2', marginTop: '8px', fontSize: '14px', lineHeight: 1.55, maxWidth: '480px' }}>
-                  Activate your verified campus identity across CS, AI, IS, and IT departments to access lectures, lab sections, and digital services.
+                  Student, Doctor, Teaching Assistant, Admin, and Employee accounts are issued directly by FCAI BSU Administration for institutional security.
                 </p>
 
                 <div className="auth-switch-banner">
                   <div>
                     <b style={{ display: 'block', fontSize: '13.5px', color: '#ffffff' }}>
-                      Already have an institutional account?
+                      Already have your credentials?
                     </b>
                     <span style={{ fontSize: '12px', color: '#94b8df' }}>
-                      Slide back to sign in with your National ID or faculty email.
+                      Slide back to sign in with your Student Code or institutional email.
                     </span>
                   </div>
                   <button
@@ -380,13 +253,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
         </div>
       </aside>
 
-      {/* =====================================================================
-          PANEL 2: INTERACTIVE FORM PANEL
-          - Sign In Mode: Sits on the RIGHT side (50%)
-          - Sign Up Mode: Smoothly slides across to the LEFT side (-100%)
-          ===================================================================== */}
+      {/* PANEL 2: INTERACTIVE FORM PANEL */}
       <div className="auth-sliding-form">
-        {/* Top Utility Navigation Bar */}
         <div className="row-between" style={{ width: '100%', maxWidth: '540px', margin: '0 auto 16px' }}>
           <a
             href="#/home"
@@ -398,14 +266,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
           </a>
 
           <div className="row gap-2">
-            <a
-              href="#/screens"
-              className="btn btn-secondary btn-sm"
-              style={{ borderRadius: '10px', textDecoration: 'none' }}
-            >
-              <Icon name="grid" size="sm" />
-              <span>All Screens</span>
-            </a>
             <button
               type="button"
               className="icon-btn theme-toggle-btn shadow-xs bg-white dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-700 dark:text-amber-400 cursor-pointer"
@@ -418,9 +278,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
           </div>
         </div>
 
-        {/* Main Card Container */}
         <div className="auth-modern-card">
-          {/* Top Sliding Mode Switcher: Sign In vs Sign Up */}
           <div className="auth-mode-switcher" role="tablist" aria-label="Authentication mode">
             <button
               type="button"
@@ -440,15 +298,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
               onClick={() => switchAuthMode('signup')}
             >
               <Icon name="user" size="sm" />
-              <span>Sign Up / Enroll</span>
+              <span>Account Info</span>
             </button>
           </div>
 
           <AnimatePresence mode="wait">
             {authMode === 'signin' ? (
-              /* ===============================================================
-                 VIEW A: SIGN IN FORM
-                 =============================================================== */
               <motion.div
                 key="form-signin"
                 initial={{ opacity: 0, x: 28 }}
@@ -458,100 +313,70 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
               >
                 <div className="mb-4">
                   <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                    Welcome back
+                    Sign In to FCAI BSU
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
-                    Sign in with your institutional credentials or use 1-click demo role access.
+                    Select Student or Staff login below. Your role and permissions are verified by the backend.
                   </p>
                 </div>
 
-                {/* Compact 1-Click Quick Sign-In Bar */}
-                <div className="mb-4 p-3 rounded-2xl bg-slate-50 dark:bg-[#041124] border border-slate-200 dark:border-sky-500/20">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-sky-300 flex items-center gap-1.5">
-                      <Icon name="zap" size="sm" />
-                      1-Click Demo Portal Access
-                    </span>
-                    <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-                      Instant Launch
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {ENROLLMENTS.map(item => {
-                      const isCurrent = signingInRole === item.role;
-                      return (
-                        <button
-                          key={item.role}
-                          type="button"
-                          disabled={isLoading || signingInRole !== null}
-                          onClick={() => handleQuickSignIn(item.role)}
-                          title={`Sign in as ${item.name} (${item.roleLabel})`}
-                          className={`p-2 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
-                            isCurrent
-                              ? 'bg-[#052659] text-white border-sky-400 shadow-md'
-                              : 'bg-white hover:bg-slate-100 dark:bg-[#081d3a] dark:hover:bg-[#0b2a52] text-slate-800 dark:text-slate-100 border-slate-200 dark:border-sky-500/25 hover:border-sky-500/60'
-                          }`}
-                        >
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-[#052659] text-white border border-sky-400/30">
-                            {isCurrent ? (
-                              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <Icon name={item.icon} size="sm" />
-                            )}
-                          </div>
-                          <span className="text-[11px] font-bold leading-tight truncate max-w-full">
-                            {item.shortLabel}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Account Type Switch: Student vs Faculty & Staff */}
-                <div className="p-1 rounded-xl bg-slate-100 dark:bg-[#041124] border border-slate-200 dark:border-sky-500/25 grid grid-cols-2 gap-1 mb-4">
+                {/* Account Type Switch: Student vs Staff (Admin, Doctor, TA, Employee) */}
+                <div className="p-1 rounded-xl bg-slate-100 dark:bg-[#041124] border border-slate-200 dark:border-sky-500/25 grid grid-cols-2 gap-1 mb-4" role="tablist" aria-label="Login type">
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={loginType === 'student'}
                     className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                      !isStaff
+                      loginType === 'student'
                         ? 'btn-primary shadow-xs'
                         : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                     }`}
-                    onClick={() => { setIsStaff(false); setError(null); }}
+                    onClick={() => {
+                      setLoginType('student');
+                      setApiError(null);
+                      setClientError(null);
+                    }}
                   >
                     <Icon name="graduation" size="sm" />
                     <span>Student</span>
                   </button>
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={loginType === 'staff'}
                     className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                      isStaff
+                      loginType === 'staff'
                         ? 'btn-primary shadow-xs'
                         : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                     }`}
-                    onClick={() => { setIsStaff(true); setError(null); }}
+                    onClick={() => {
+                      setLoginType('staff');
+                      setApiError(null);
+                      setClientError(null);
+                    }}
                   >
                     <Icon name="briefcase" size="sm" />
-                    <span>Faculty &amp; Staff</span>
+                    <span>Faculty, Admin &amp; Staff</span>
                   </button>
                 </div>
 
-                {error && (
-                  <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-500/40 text-xs text-red-900 dark:text-red-200 flex items-start gap-2.5 mb-4">
+                {bannerError && (
+                  <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-500/40 text-xs text-red-900 dark:text-red-200 flex items-start gap-2.5 mb-4" role="alert">
                     <Icon name="alertCircle" size="sm" className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                     <div>
-                      <b className="block font-bold">Authentication Notice</b>
-                      <p className="mt-0.5">{error}</p>
+                      <b className="block font-bold">
+                        {apiError?.status ? `Sign-In Failed (HTTP ${apiError.status})` : 'Sign-In Error'}
+                      </b>
+                      <p className="mt-0.5">{bannerError}</p>
                     </div>
                   </div>
                 )}
 
-                <form className="space-y-3.5" onSubmit={handleSignInSubmit}>
-                  {!isStaff ? (
+                <form className="space-y-4" onSubmit={handleSignInSubmit} noValidate>
+                  {loginType === 'student' ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                        <label htmlFor="login-national-id" className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                           National ID (14 Digits)
                         </label>
                         <div className="relative flex items-center">
@@ -559,19 +384,25 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
                             <Icon name="idCard" size="sm" />
                           </span>
                           <input
+                            id="login-national-id"
                             className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
                             type="text"
+                            inputMode="numeric"
                             maxLength={14}
                             value={nationalId}
                             onChange={e => setNationalId(e.target.value)}
                             placeholder="14-digit National ID"
+                            autoComplete="username"
                             required
                           />
                         </div>
+                        {fieldErrors('nationalId').map((msg, i) => (
+                          <p key={i} className="text-xs text-red-600 dark:text-red-400 mt-1">{msg}</p>
+                        ))}
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                        <label htmlFor="login-student-code" className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                           Student Code
                         </label>
                         <div className="relative flex items-center">
@@ -579,44 +410,26 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
                             <Icon name="hash" size="sm" />
                           </span>
                           <input
+                            id="login-student-code"
                             className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
                             type="text"
                             value={studentCode}
                             onChange={e => setStudentCode(e.target.value)}
-                            placeholder="e.g. 2021170045"
+                            placeholder="e.g. 240001"
                             required
                           />
                         </div>
+                        {fieldErrors('studentCode').map((msg, i) => (
+                          <p key={i} className="text-xs text-red-600 dark:text-red-400 mt-1">{msg}</p>
+                        ))}
                       </div>
                     </div>
                   ) : (
                     <div>
-                      <div className="grid grid-cols-4 gap-1.5 mb-3">
-                        {[
-                          { role: 'doctor' as Role, label: 'Doctor', email: 'mona.abdelrahman@fcai.bsu.edu.eg' },
-                          { role: 'ta' as Role, label: 'TA', email: 'youssef.khaled@fcai.bsu.edu.eg' },
-                          { role: 'admin' as Role, label: 'Admin', email: 'tarek.fathy@fcai.bsu.edu.eg' },
-                          { role: 'employee' as Role, label: 'Staff', email: 'salma.ibrahim@fcai.bsu.edu.eg' }
-                        ].map(s => (
-                          <button
-                            key={s.role}
-                            type="button"
-                            onClick={() => {
-                              setSelectedStaffRole(s.role);
-                              setEmail(s.email);
-                            }}
-                            className={`py-1.5 px-2 rounded-lg text-xs transition-all cursor-pointer border ${
-                              selectedStaffRole === s.role
-                                ? 'btn-primary font-bold'
-                                : 'bg-white dark:bg-[#041124] text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 font-medium'
-                            }`}
-                          >
-                            {s.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                        For <b>Admin</b>, <b>Doctor</b>, <b>Teaching Assistant</b>, and <b>Employee</b> accounts.
+                      </p>
+                      <label htmlFor="login-email" className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                         Institutional Email
                       </label>
                       <div className="relative flex items-center">
@@ -624,20 +437,25 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
                           <Icon name="mail" size="sm" />
                         </span>
                         <input
+                          id="login-email"
                           className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
                           type="email"
                           value={email}
                           onChange={e => setEmail(e.target.value)}
-                          placeholder="name@fcai.bsu.edu.eg"
+                          placeholder="name@fcai.bsu"
+                          autoComplete="email"
                           required
                         />
                       </div>
+                      {fieldErrors('email').map((msg, i) => (
+                        <p key={i} className="text-xs text-red-600 dark:text-red-400 mt-1">{msg}</p>
+                      ))}
                     </div>
                   )}
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      <label htmlFor="login-password" className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                         Password
                       </label>
                       <a href="#/forgot-password" className="text-xs font-bold text-sky-700 dark:text-sky-400 hover:underline">
@@ -649,11 +467,13 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
                         <Icon name="lock" size="sm" />
                       </span>
                       <input
+                        id="login-password"
                         className="w-full h-10 pl-9 pr-10 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
                         type={showPassword ? 'text' : 'password'}
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                         placeholder="Enter your password"
+                        autoComplete="current-password"
                         required
                       />
                       <button
@@ -665,22 +485,14 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
                         <Icon name={showPassword ? 'eyeOff' : 'eye'} size="sm" />
                       </button>
                     </div>
+                    {fieldErrors('password').map((msg, i) => (
+                      <p key={i} className="text-xs text-red-600 dark:text-red-400 mt-1">{msg}</p>
+                    ))}
                   </div>
 
-                  <div className="flex items-center justify-between pt-0.5">
-                    <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={e => setRememberMe(e.target.checked)}
-                        className="rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
-                      />
-                      <span>Keep me signed in for 7 days</span>
-                    </label>
-                    <a href="#/first-login" className="text-xs font-semibold text-sky-700 dark:text-sky-400 hover:underline">
-                      First-time activation
-                    </a>
-                  </div>
+                  <p className="text-[11.5px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Session tokens are stored exclusively in memory for security. Reloading the browser tab will require signing in again.
+                  </p>
 
                   <button
                     className="btn btn-primary w-full h-11 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-all mt-2"
@@ -690,7 +502,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
                     {isLoading ? (
                       <>
                         <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>Signing in…</span>
+                        <span>Authenticating…</span>
                       </>
                     ) : (
                       <>
@@ -701,25 +513,20 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
                   </button>
                 </form>
 
-                {/* Bottom Slide Trigger */}
                 <div className="mt-5 pt-4 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs">
                   <span className="text-slate-600 dark:text-slate-400">
-                    New student or faculty member?
+                    Have a reset token already?
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => switchAuthMode('signup')}
-                    className="font-bold text-sky-700 dark:text-sky-400 hover:underline inline-flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0"
+                  <a
+                    href="#/reset-password"
+                    className="font-bold text-sky-700 dark:text-sky-400 hover:underline inline-flex items-center gap-1"
                   >
-                    <span>Sign Up / Enroll</span>
+                    <span>Reset Password</span>
                     <Icon name="arrowRight" size="sm" />
-                  </button>
+                  </a>
                 </div>
               </motion.div>
             ) : (
-              /* ===============================================================
-                 VIEW B: SIGN UP / ENROLLMENT FORM (SLIDES TO THE LEFT SIDE)
-                 =============================================================== */
               <motion.div
                 key="form-signup"
                 initial={{ opacity: 0, x: -28 }}
@@ -727,239 +534,47 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
                 exit={{ opacity: 0, x: 28 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
-                {isSubmitted ? (
-                  <div className="text-center py-6">
-                    <div className="state-art info mx-auto mb-4" style={{ width: '64px', height: '64px', borderRadius: '18px' }}>
-                      <Icon name="checkCircle" size="xl" />
-                    </div>
-                    <h2 className="text-xl font-extrabold text-slate-900 dark:text-white mb-2">
-                      Enrollment Application Received
-                    </h2>
-                    <p className="text-slate-600 dark:text-slate-300 text-xs sm:text-sm mb-6 leading-relaxed">
-                      Your institutional verification request for <b>{signupFullName || 'Applicant'}</b> has been sent to FCAI Student Affairs. Activation details will be sent to <b>{signupEmail}</b>.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => switchAuthMode('signin')}
-                        className="btn btn-primary flex-1 h-11 rounded-xl text-xs font-bold"
-                      >
-                        <Icon name="chevronLeft" size="sm" />
-                        <span>Slide Back to Sign In</span>
-                      </button>
-                      <a
-                        href="#/home"
-                        className="btn btn-secondary flex-1 h-11 rounded-xl text-xs font-semibold"
-                      >
-                        <span>Return to Home</span>
-                      </a>
-                    </div>
+                <div className="py-2">
+                  <div className="state-art info mb-4" style={{ width: '56px', height: '56px', borderRadius: '16px' }}>
+                    <Icon name="shieldCheck" size="lg" />
                   </div>
-                ) : (
-                  <>
-                    <div className="mb-4">
-                      <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                        Create Institutional Account
-                      </h1>
-                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
-                        Submit your 2026/2027 admission details for Student Affairs verification.
+                  <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                    Institutional Account Provisioning
+                  </h1>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">
+                    Self-registration is not exposed on the backend API. All institutional accounts are created and verified by <b>FCAI BSU College Administration</b> and <b>Student Affairs</b>.
+                  </p>
+
+                  <div className="mt-4 space-y-2.5 text-xs">
+                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#041124] border border-slate-200 dark:border-sky-500/20">
+                      <b className="block text-slate-900 dark:text-white mb-1">Students</b>
+                      <p className="text-slate-600 dark:text-slate-300">
+                        Use your 14-digit Egyptian National ID, assigned Student Code, and initial password issued by Student Affairs. On first login, you will be prompted to set a permanent password.
                       </p>
                     </div>
 
-                    {/* Persona Switcher */}
-                    <div className="p-1 rounded-xl bg-slate-100 dark:bg-[#041124] border border-slate-200 dark:border-sky-500/25 grid grid-cols-2 gap-1 mb-4">
-                      <button
-                        type="button"
-                        className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                          signupAccountType === 'student'
-                            ? 'btn-primary shadow-xs'
-                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                        }`}
-                        onClick={() => setSignupAccountType('student')}
-                      >
-                        <Icon name="graduation" size="sm" />
-                        <span>New Student</span>
-                      </button>
-                      <button
-                        type="button"
-                        className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                          signupAccountType === 'staff'
-                            ? 'btn-primary shadow-xs'
-                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                        }`}
-                        onClick={() => setSignupAccountType('staff')}
-                      >
-                        <Icon name="briefcase" size="sm" />
-                        <span>Faculty &amp; Staff</span>
-                      </button>
+                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#041124] border border-slate-200 dark:border-sky-500/20">
+                      <b className="block text-slate-900 dark:text-white mb-1">Admin, Doctors, TAs &amp; Employees</b>
+                      <p className="text-slate-600 dark:text-slate-300">
+                        Sign in under the Staff tab using your official institutional email and password provisioned by College IT Administration.
+                      </p>
                     </div>
+                  </div>
 
-                    {error && (
-                      <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-500/40 text-xs text-red-900 dark:text-red-200 flex items-start gap-2.5 mb-4">
-                        <Icon name="alertCircle" size="sm" className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                        <span>{error}</span>
-                      </div>
-                    )}
-
-                    <form onSubmit={handleSignUpSubmit} className="space-y-3.5">
-                      <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                          Full Legal Name (Arabic or English)
-                        </label>
-                        <div className="relative flex items-center">
-                          <span className="absolute left-3 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
-                            <Icon name="user" size="sm" />
-                          </span>
-                          <input
-                            type="text"
-                            required
-                            value={signupFullName}
-                            onChange={e => setSignupFullName(e.target.value)}
-                            placeholder="e.g. Mostafa Ahmed Mahmoud"
-                            className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                            Egyptian National ID
-                          </label>
-                          <div className="relative flex items-center">
-                            <span className="absolute left-3 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
-                              <Icon name="idCard" size="sm" />
-                            </span>
-                            <input
-                              type="text"
-                              maxLength={14}
-                              required
-                              value={signupNationalId}
-                              onChange={e => setSignupNationalId(e.target.value)}
-                              placeholder="14-digit National ID"
-                              className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                            Seat / Admission Code
-                          </label>
-                          <div className="relative flex items-center">
-                            <span className="absolute left-3 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
-                              <Icon name="hash" size="sm" />
-                            </span>
-                            <input
-                              type="text"
-                              required
-                              value={signupAcademicCode}
-                              onChange={e => setSignupAcademicCode(e.target.value)}
-                              placeholder="e.g. TANSIQ-84920"
-                              className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                            Official / Contact Email
-                          </label>
-                          <div className="relative flex items-center">
-                            <span className="absolute left-3 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
-                              <Icon name="mail" size="sm" />
-                            </span>
-                            <input
-                              type="email"
-                              required
-                              value={signupEmail}
-                              onChange={e => setSignupEmail(e.target.value)}
-                              placeholder="student@fcai.bsu.edu.eg"
-                              className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                            Academic Department
-                          </label>
-                          <select
-                            value={signupDept}
-                            onChange={e => setSignupDept(e.target.value)}
-                            className="w-full h-10 px-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
-                          >
-                            <option value="AI">Artificial Intelligence (AI)</option>
-                            <option value="CS">Computer Science (CS)</option>
-                            <option value="IS">Information Systems (IS)</option>
-                            <option value="IT">Information Technology (IT)</option>
-                            <option value="GENERAL">General First Year</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                          Create Secure Password
-                        </label>
-                        <div className="relative flex items-center">
-                          <span className="absolute left-3 text-slate-400 dark:text-sky-400 pointer-events-none flex items-center">
-                            <Icon name="lock" size="sm" />
-                          </span>
-                          <input
-                            type="password"
-                            required
-                            value={signupPassword}
-                            onChange={e => setSignupPassword(e.target.value)}
-                            placeholder="At least 8 characters"
-                            className="w-full h-10 pl-9 pr-3 rounded-xl bg-white dark:bg-[#041124] border border-slate-300 dark:border-sky-500/30 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-sky-500"
-                          />
-                        </div>
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="btn btn-primary w-full h-11 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-all mt-2"
-                      >
-                        {isLoading ? (
-                          <>
-                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            <span>Verifying Admission Data…</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>Submit Enrollment Application</span>
-                            <Icon name="arrowRight" size="sm" />
-                          </>
-                        )}
-                      </button>
-                    </form>
-
-                    {/* Bottom Slide Trigger */}
-                    <div className="mt-5 pt-4 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs">
-                      <span className="text-slate-600 dark:text-slate-400">
-                        Already have an institutional account?
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => switchAuthMode('signin')}
-                        className="font-bold text-sky-700 dark:text-sky-400 hover:underline inline-flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0"
-                      >
-                        <Icon name="chevronLeft" size="sm" />
-                        <span>Back to Sign In</span>
-                      </button>
-                    </div>
-                  </>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => switchAuthMode('signin')}
+                    className="btn btn-primary w-full h-11 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer mt-5"
+                  >
+                    <Icon name="chevronLeft" size="sm" />
+                    <span>Back to Sign In</span>
+                  </button>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        {/* Footer Copyright */}
         <div className="text-center text-xs text-slate-400 dark:text-slate-500 mt-4">
           © 2026/2027 Faculty of Computers &amp; Artificial Intelligence · Beni Suef University
         </div>

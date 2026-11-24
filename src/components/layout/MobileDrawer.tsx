@@ -22,8 +22,8 @@ export const MobileDrawer: React.FC<{ activePath: string }> = ({ activePath }) =
     currentUser,
     isAuthenticated,
     role,
-    switchRole,
     logout,
+    setPendingRedirect,
     unreadNotificationsCount,
     theme,
     toggleTheme,
@@ -184,36 +184,15 @@ export const MobileDrawer: React.FC<{ activePath: string }> = ({ activePath }) =
 
   const sections = navConfig[role] || navConfig.student;
 
-  const rolesList: { id: Role; label: string; icon: string }[] = [
-    { id: 'student', label: 'Student', icon: 'graduation' },
-    { id: 'doctor', label: 'Doctor', icon: 'briefcase' },
-    { id: 'ta', label: 'TA', icon: 'users' },
-    { id: 'admin', label: 'Admin', icon: 'shield' },
-    { id: 'employee', label: 'Employee', icon: 'idCard' }
-  ];
-
-  const handleRoleSelect = async (newRole: Role) => {
-    if (!isAuthenticated) {
-      closeMobileMenu();
-      showToast('Sign In Required', 'Please sign in to access your institutional portal.', 'info');
-      sessionStorage.setItem('fcai_redirect_after_login', `#/${newRole}/dashboard`);
-      window.location.hash = '#/login';
-      return;
-    }
-    await switchRole(newRole);
-    window.location.hash = `#/${newRole}/dashboard`;
-    closeMobileMenu();
-  };
-
   const handleItemClick = (path: string) => {
     if (!isAuthenticated) {
       closeMobileMenu();
       showToast('Sign In Required', 'Please sign in to access your institutional portal.', 'info');
-      sessionStorage.setItem('fcai_redirect_after_login', `#/${role}/${path}`);
+      setPendingRedirect(`#/${role}/${path}`);
       window.location.hash = '#/login';
       return;
     }
-    window.location.hash = `#/${role}/${path}`;
+    window.location.hash = path === 'account-security' ? '#/account-security' : `#/${role}/${path}`;
     closeMobileMenu();
   };
 
@@ -265,14 +244,14 @@ export const MobileDrawer: React.FC<{ activePath: string }> = ({ activePath }) =
                   boxShadow: '0 0 12px rgba(56, 189, 248, 0.35)'
                 }}
               >
-                {currentUser?.short || 'AH'}
+                {currentUser?.short || 'U'}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <strong
                   style={{ color: '#ffffff', fontSize: '14px', fontWeight: 700, display: 'block', lineHeight: 1.25 }}
                   className="truncate"
                 >
-                  {currentUser?.name || 'Ahmed Hassan'}
+                  {currentUser?.name || 'Authenticated User'}
                 </strong>
                 <div className="row align-center gap-2 mt-1" style={{ flexWrap: 'wrap' }}>
                   <span
@@ -370,24 +349,6 @@ export const MobileDrawer: React.FC<{ activePath: string }> = ({ activePath }) =
             </div>
           </div>
         )}
-
-        {/* Quick Role Switcher */}
-        <div className="mobile-role-selector">
-          <div className="mobile-role-label">SWITCH ACTIVE PORTAL</div>
-          <div className="mobile-role-chips">
-            {rolesList.map(r => (
-              <button
-                key={r.id}
-                type="button"
-                className={`mobile-role-chip ${role === r.id ? 'active' : ''}`}
-                onClick={() => handleRoleSelect(r.id)}
-              >
-                <Icon name={r.icon} size="sm" />
-                <span>{r.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Dark / Light Mode Switcher */}
         <div className="mobile-theme-row">

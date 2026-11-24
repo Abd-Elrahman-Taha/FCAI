@@ -4,8 +4,11 @@ import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';
 import { LiveCampusPulse } from '../../components/common/LiveCampusPulse';
 import { ScrollReveal } from '../../components/common/ScrollReveal';
+import { ActiveSemesterCard } from '../../components/common/ActiveSemesterCard';
+import { useAuth } from '../../context/AuthContext';
 
 export const DoctorDashboard: React.FC = () => {
+  const { currentUser } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -30,7 +33,7 @@ export const DoctorDashboard: React.FC = () => {
               <div className="hero-chip mb-2">
                 <Icon name="briefcase" size="sm" /> Faculty of Computers &amp; AI · Fall 2026
               </div>
-              <h1 style={{ fontSize: '26px', fontWeight: 750 }}>Welcome, {doctor.name}</h1>
+              <h1 style={{ fontSize: '26px', fontWeight: 750 }}>Welcome, {currentUser?.name || doctor.name}</h1>
               <p className="sub mt-2" style={{ fontSize: '14px' }}>
                 Associate Professor · {doctor.department} Department &nbsp;•&nbsp; Office: Room B-314 &nbsp;•&nbsp; 4 Assigned CourseOfferings
               </p>
@@ -45,6 +48,11 @@ export const DoctorDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+      </ScrollReveal>
+
+      {/* Live Active Semester (GET /api/semesters/active) */}
+      <ScrollReveal direction="up" delay={0.08}>
+        <ActiveSemesterCard />
       </ScrollReveal>
 
       {/* Live Campus Activity Stream */}

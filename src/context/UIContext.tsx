@@ -1,14 +1,14 @@
 /**
  * UI & Presentation State Context
- * 
- * Manages global application shell presentation state:
- * - Theme mode (light / dark) with localStorage persistence
+ *
+ * Manages global application shell presentation state strictly in memory:
+ * - Theme mode (light / dark)
  * - Sidebar collapse / expand state
  * - Mobile navigation drawer visibility
  * - Global toast notification queue
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 export type ThemeMode = 'light' | 'dark';
 
@@ -37,11 +37,8 @@ export interface UIContextType {
 const UIContext = createContext<UIContextType | undefined>(undefined);
 
 export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Theme state
   const [theme, setThemeState] = useState<ThemeMode>(() => {
-    const saved = localStorage.getItem('fcai_theme');
-    if (saved === 'dark' || saved === 'light') return saved;
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
       return 'dark';
     }
     return 'light';
@@ -54,66 +51,59 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('fcai_theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     setThemeState(prev => (prev === 'light' ? 'dark' : 'light'));
-  };
+  }, []);
 
-  const setTheme = (t: ThemeMode) => {
+  const setTheme = useCallback((t: ThemeMode) => {
     setThemeState(t);
-  };
+  }, []);
 
-  // Sidebar state
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
-    return localStorage.getItem('fcai-collapsed') === '1';
-  });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
-  const toggleSidebar = () => {
-    setIsSidebarCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem('fcai-collapsed', next ? '1' : '0');
-      return next;
-    });
-  };
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarCollapsed(prev => !prev);
+  }, []);
 
-  // Mobile menu drawer
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
 
-  const toggleMobileDrawer = () => {
+  const toggleMobileDrawer = useCallback(() => {
     setIsMobileDrawerOpen(prev => !prev);
-  };
+  }, []);
 
-  const closeMobileDrawer = () => {
+  const closeMobileDrawer = useCallback(() => {
     setIsMobileDrawerOpen(false);
-  };
+  }, []);
 
-  // Toast notifications queue
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const showToast = (arg1: string, arg2?: string, arg3?: 'success' | 'error' | 'info') => {
-    let title = arg1;
-    let message = arg2 || '';
-    let type: 'success' | 'error' | 'info' = 'success';
-
-    if (arg2 === 'success' || arg2 === 'error' || arg2 === 'info') {
-      type = arg2;
-      title = type.charAt(0).toUpperCase() + type.slice(1);
-      message = arg1;
-    } else if (arg3) {
-      type = arg3;
-    }
-
-    const id = `t_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    const newToast: ToastItem = { id, title, message, type };
-    setToasts(prev => [...prev, newToast]);
-    setTimeout(() => removeToast(id), 4500);
-  };
-
-  const removeToast = (id: string) => {
+  const removeToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
-  };
+  }, []);
+
+  const showToast = useCallback(
+    (arg1: string, arg2?: string, arg3?: 'success' | 'error' | 'info') => {
+      let title = arg1;
+      let message = arg2 || '';
+      let type: 'success' | 'error' | 'info' = 'success';
+
+      if (arg2 === 'success' || arg2 === 'error' || arg2 === 'info') {
+        type = arg2;
+        title = type.charAt(0).toUpperCase() + type.slice(1);
+        message = arg1;
+      } else if (arg3) {
+        type = arg3;
+      }
+
+      const id = `t_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const newToast: ToastItem = { id, title, message, type };
+      setToasts(prev => [...prev, newToast]);
+      setTimeout(() => removeToast(id), 4500);
+    },
+    [removeToast]
+  );
 
   return (
     <UIContext.Provider

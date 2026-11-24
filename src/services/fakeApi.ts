@@ -1,21 +1,14 @@
 /**
- * Unified API Facade & Backwards Compatibility Layer
- * 
- * All existing `fakeApi` imports across the codebase route through the unified `api` facade.
- * 
- * - When `VITE_USE_MOCK_API=false`: Calls are automatically routed to your real REST API backend.
- * - When `VITE_USE_MOCK_API=true`: Calls are handled by the in-memory mock data provider.
- * 
- * For clean modular code, you can also import specific domain services:
- *   import { studentService } from '../services/studentService';
- *   import { authService } from '../services/authService';
- *   import { doctorService } from '../services/doctorService';
- *   import { apiClient } from '../services/apiClient';
+ * Frontend-Only Preview Data Layer (Unintegrated Future Phases)
+ *
+ * IMPORTANT:
+ * - Used ONLY by existing frontend-only UI pages whose backend APIs belong to
+ *   unfinished future phases (Phases 3–18).
+ * - NOT used for Authentication, Academic Years, Academic Levels, or Active Semester.
+ * - NOT an API fallback proxy — integrated features call `src/services/api.ts` directly.
  */
 
-import { api } from './api';
+import { mockDataApi } from './mockDataApi';
 
-export const fakeApi = api;
-export { api };
-export * from './api';
-export default api;
+export const fakeApi = mockDataApi;
+export default mockDataApi;

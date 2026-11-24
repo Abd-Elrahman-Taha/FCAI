@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useAcademic } from '../../context/AcademicContext';
 import { Icon, FCAILogo } from '../icons/Icon';
 import type { Role } from '../../types';
 
@@ -17,6 +18,7 @@ interface NavSection {
 
 export const Sidebar: React.FC<{ activePath: string }> = ({ activePath }) => {
   const { role, isSidebarCollapsed } = useAuth();
+  const { activeSemester, noActiveSemester, isLoadingSemester } = useAcademic();
 
   const navConfig: Record<Role, NavSection[]> = {
     student: [
@@ -294,7 +296,15 @@ export const Sidebar: React.FC<{ activePath: string }> = ({ activePath }) => {
           <span className="dot"></span>
           <div>
             <b>{roleLabelMap[role]}</b>
-            <div style={{ color: '#8fb0d6', fontSize: '11.5px' }}>Fall 2026 · Active</div>
+            <div style={{ color: '#8fb0d6', fontSize: '11.5px' }}>
+              {isLoadingSemester
+                ? 'Loading active semester…'
+                : activeSemester
+                ? `${activeSemester.name} · ${activeSemester.academicYearName}`
+                : noActiveSemester
+                ? 'No Active Semester'
+                : 'Authenticated Session'}
+            </div>
           </div>
         </div>
       )}
@@ -326,9 +336,9 @@ export const Sidebar: React.FC<{ activePath: string }> = ({ activePath }) => {
       </nav>
 
       <div className="sb-foot">
-        <a className="sb-help" href="#/screens" title="All Screens & Roles Switcher">
-          <Icon name="grid" />
-          {!isSidebarCollapsed && <span>All screens &amp; roles</span>}
+        <a className="sb-help" href="#/account-security" title="Account Security & Password">
+          <Icon name="shield" />
+          {!isSidebarCollapsed && <span>Account security</span>}
         </a>
       </div>
     </aside>

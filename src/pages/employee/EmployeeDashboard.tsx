@@ -3,8 +3,11 @@ import { fakeApi } from '../../services/fakeApi';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';
+import { ActiveSemesterCard } from '../../components/common/ActiveSemesterCard';
+import { useAuth } from '../../context/AuthContext';
 
 export const EmployeeDashboard: React.FC = () => {
+  const { currentUser } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,7 +31,7 @@ export const EmployeeDashboard: React.FC = () => {
             <div className="hero-chip mb-2">
               <Icon name="briefcase" size="sm" /> Faculty Administrative Staff · {department}
             </div>
-            <h1 style={{ fontSize: '26px', fontWeight: 750 }}>Welcome, {employee.name}</h1>
+            <h1 style={{ fontSize: '26px', fontWeight: 750 }}>Welcome, {currentUser?.name || employee.name}</h1>
             <p className="sub mt-2" style={{ fontSize: '14px' }}>
               Senior Affairs Officer &nbsp;•&nbsp; Department: {department} &nbsp;•&nbsp; Office: Room G-104
             </p>
@@ -43,6 +46,9 @@ export const EmployeeDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Live Active Semester (GET /api/semesters/active) */}
+      <ActiveSemesterCard />
 
       {/* KPI Cards Row */}
       <div className="grid g-4 mb-6">

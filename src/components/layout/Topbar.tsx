@@ -1,15 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Icon, FCAILogo } from '../icons/Icon';
-import type { Role } from '../../types';
 
 export const Topbar: React.FC = () => {
   const {
     currentUser,
     isAuthenticated,
     role,
-    switchRole,
     logout,
+    logoutAll,
     notifications,
     unreadNotificationsCount,
     markNotificationRead,
@@ -17,7 +16,6 @@ export const Topbar: React.FC = () => {
     toggleSidebar,
     isSidebarCollapsed,
     isMobileMenuOpen,
-    toggleMobileMenu,
     theme,
     toggleTheme
   } = useAuth();
@@ -43,20 +41,6 @@ export const Topbar: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const handleRoleChange = async (newRole: Role) => {
-    await switchRole(newRole);
-    window.location.hash = `#/${newRole}/dashboard`;
-    setIsUserMenuOpen(false);
-  };
-
-  const rolesList: { id: Role; label: string; icon: string }[] = [
-    { id: 'student', label: 'Student', icon: 'graduation' },
-    { id: 'doctor', label: 'Doctor / Instructor', icon: 'briefcase' },
-    { id: 'ta', label: 'Teaching Assistant (TA)', icon: 'users' },
-    { id: 'admin', label: 'College Admin', icon: 'shield' },
-    { id: 'employee', label: 'Employee (Student Affairs)', icon: 'idCard' }
-  ];
 
   return (
     <header className="topbar">
@@ -216,9 +200,9 @@ export const Topbar: React.FC = () => {
                 onClick={() => setIsUserMenuOpen(prev => !prev)}
                 aria-label="User account menu"
               >
-                <div className="avatar">{currentUser?.short || 'AH'}</div>
+                <div className="avatar">{currentUser?.short || 'U'}</div>
                 <div className="hide-m">
-                  <b>{currentUser?.name || 'Ahmed Hassan'}</b>
+                  <b>{currentUser?.name || 'Authenticated User'}</b>
                   <span>{currentUser?.roleLabel}</span>
                 </div>
                 <Icon name="chevronDown" size="sm" className="hide-m muted" />
@@ -234,14 +218,14 @@ export const Topbar: React.FC = () => {
                     </span>
                   </div>
 
+                  <a href="#/account-security" onClick={() => setIsUserMenuOpen(false)}>
+                    <Icon name="shield" size="sm" /> Account Security &amp; Password
+                  </a>
                   <a href={`#/${role}/profile`} onClick={() => setIsUserMenuOpen(false)}>
                     <Icon name="user" size="sm" /> My Profile
                   </a>
                   <a href={`#/${role}/notifications`} onClick={() => setIsUserMenuOpen(false)}>
                     <Icon name="bell" size="sm" /> Notifications ({unreadNotificationsCount})
-                  </a>
-                  <a href="#/screens" onClick={() => setIsUserMenuOpen(false)}>
-                    <Icon name="grid" size="sm" /> All Screens Directory
                   </a>
 
                   <button
@@ -257,26 +241,15 @@ export const Topbar: React.FC = () => {
 
                   <div className="divider" style={{ margin: '6px 0' }} />
 
-                  <div style={{ padding: '4px 10px 6px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                    SWITCH ACTIVE ROLE:
-                  </div>
-                  {rolesList.map(r => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      style={{
-                        fontWeight: role === r.id ? 700 : 400,
-                        background: role === r.id ? 'var(--blue-50)' : 'transparent',
-                        color: role === r.id ? 'var(--navy-800)' : 'inherit'
-                      }}
-                      onClick={() => handleRoleChange(r.id)}
-                    >
-                      <Icon name={r.icon} size="sm" />
-                      {r.label} {role === r.id && '✓'}
-                    </button>
-                  ))}
-
-                  <div className="divider" style={{ margin: '6px 0' }} />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      logoutAll();
+                    }}
+                  >
+                    <Icon name="shield" size="sm" /> Sign out all devices
+                  </button>
 
                   <button
                     type="button"
