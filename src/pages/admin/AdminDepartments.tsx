@@ -23,6 +23,7 @@ import type {
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';
+import { Modal } from '../../components/common/Modal';
 import { useAuth } from '../../context/AuthContext';
 
 export const AdminDepartments: React.FC = () => {
@@ -415,142 +416,144 @@ export const AdminDepartments: React.FC = () => {
       )}
 
       {/* Create / Edit Modal */}
-      {modalMode && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal card card-pad" style={{ maxWidth: '520px', width: '100%' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">{modalMode === 'create' ? 'Create Department' : 'Edit Department'}</h3>
-              <button type="button" className="icon-btn" onClick={() => !submitting && setModalMode(null)}>
-                <Icon name="x" size="sm" />
-              </button>
-            </div>
-            {formError && (
-              <div className="alert alert-danger mb-3 text-sm">
-                <Icon name="alert" size="sm" />
-                <span>{formError}</span>
-              </div>
-            )}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Code</label>
-                  <input className="input" value={code} onChange={e => setCode(e.target.value)} placeholder="CS" required />
-                </div>
-                <div>
-                  <label className="label">Type</label>
-                  <select className="input" value={deptType} onChange={e => setDeptType(e.target.value as DepartmentType)}>
-                    <option value="Academic">Academic</option>
-                    <option value="Administrative">Administrative</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="label">English Name</label>
-                <input className="input" value={nameEn} onChange={e => setNameEn(e.target.value)} placeholder="Computer Science" required />
-              </div>
-              <div>
-                <label className="label">Arabic Name</label>
-                <input className="input" dir="rtl" value={nameAr} onChange={e => setNameAr(e.target.value)} placeholder="علوم الحاسب" required />
-              </div>
-              {modalMode === 'create' && (
-                <div>
-                  <label className="label">Head Doctor (Optional)</label>
-                  <select className="input" value={headDoctorId} onChange={e => setHeadDoctorId(e.target.value)}>
-                    <option value="">None</option>
-                    {doctors.map(d => (
-                      <option key={d.id} value={String(d.id)}>
-                        {d.fullNameEn || d.fullNameAr || d.email} (#{d.id})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" className="btn btn-outline" onClick={() => setModalMode(null)} disabled={submitting}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? 'Saving...' : modalMode === 'create' ? 'Create' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        open={modalMode !== null}
+        onClose={() => setModalMode(null)}
+        title={modalMode === 'create' ? 'Create Department' : 'Edit Department'}
+        subtitle={
+          modalMode === 'create'
+            ? 'Register a new academic or administrative department.'
+            : 'Update department code, bilingual name, and classification.'
+        }
+        icon="building"
+        size="md"
+        busy={submitting}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline" onClick={() => setModalMode(null)} disabled={submitting}>
+              Cancel
+            </button>
+            <button type="submit" form="department-form" className="btn btn-primary" disabled={submitting}>
+              {submitting ? 'Saving...' : modalMode === 'create' ? 'Create Department' : 'Save Changes'}
+            </button>
+          </>
+        }
+      >
+        {formError && (
+          <div className="alert alert-danger mb-4 text-sm">
+            <Icon name="alert" size="sm" />
+            <span>{formError}</span>
           </div>
-        </div>
-      )}
+        )}
+        <form id="department-form" onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="label">Code</label>
+              <input className="input" value={code} onChange={e => setCode(e.target.value)} placeholder="CS" required />
+            </div>
+            <div>
+              <label className="label">Type</label>
+              <select className="input" value={deptType} onChange={e => setDeptType(e.target.value as DepartmentType)}>
+                <option value="Academic">Academic</option>
+                <option value="Administrative">Administrative</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="label">English Name</label>
+            <input className="input" value={nameEn} onChange={e => setNameEn(e.target.value)} placeholder="Computer Science" required />
+          </div>
+          <div>
+            <label className="label">Arabic Name</label>
+            <input className="input" dir="rtl" value={nameAr} onChange={e => setNameAr(e.target.value)} placeholder="علوم الحاسب" required />
+          </div>
+          {modalMode === 'create' && (
+            <div>
+              <label className="label">Head Doctor (Optional)</label>
+              <select className="input" value={headDoctorId} onChange={e => setHeadDoctorId(e.target.value)}>
+                <option value="">None</option>
+                {doctors.map(d => (
+                  <option key={d.id} value={String(d.id)}>
+                    {d.fullNameEn || d.fullNameAr || d.email} (#{d.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </form>
+      </Modal>
 
       {/* Assign Head Doctor Modal */}
-      {headModalDept && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal card card-pad" style={{ maxWidth: '460px', width: '100%' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-bold">Assign Head Doctor</h3>
-                <p className="text-xs muted">{headModalDept.nameEn} ({headModalDept.code})</p>
-              </div>
-              <button type="button" className="icon-btn" onClick={() => !savingHead && setHeadModalDept(null)}>
-                <Icon name="x" size="sm" />
-              </button>
-            </div>
-            <form onSubmit={handleSaveHead} className="space-y-4">
-              <div>
-                <label className="label">Head Doctor</label>
-                <select className="input" value={selectedHeadId} onChange={e => setSelectedHeadId(e.target.value)}>
-                  <option value="">Unassign Head Doctor</option>
-                  {doctors.map(d => (
-                    <option key={d.id} value={String(d.id)}>
-                      {d.fullNameEn || d.fullNameAr || d.email} ({d.title || 'Doctor'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex justify-end gap-2">
-                <button type="button" className="btn btn-outline" onClick={() => setHeadModalDept(null)} disabled={savingHead}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={savingHead}>
-                  {savingHead ? 'Updating...' : 'Save Head Doctor'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        open={headModalDept !== null}
+        onClose={() => setHeadModalDept(null)}
+        title="Assign Head Doctor"
+        subtitle={headModalDept ? `${headModalDept.nameEn} (${headModalDept.code})` : undefined}
+        icon="briefcase"
+        size="sm"
+        busy={savingHead}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline" onClick={() => setHeadModalDept(null)} disabled={savingHead}>
+              Cancel
+            </button>
+            <button type="submit" form="head-doctor-form" className="btn btn-primary" disabled={savingHead}>
+              {savingHead ? 'Updating...' : 'Save Head Doctor'}
+            </button>
+          </>
+        }
+      >
+        <form id="head-doctor-form" onSubmit={handleSaveHead} className="space-y-4">
+          <div>
+            <label className="label">Head Doctor</label>
+            <select className="input" value={selectedHeadId} onChange={e => setSelectedHeadId(e.target.value)}>
+              <option value="">Unassign Head Doctor</option>
+              {doctors.map(d => (
+                <option key={d.id} value={String(d.id)}>
+                  {d.fullNameEn || d.fullNameAr || d.email} ({d.title || 'Doctor'})
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
 
       {/* Department Details Modal */}
-      {detail && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal card card-pad" style={{ maxWidth: '480px', width: '100%' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">{detail.nameEn}</h3>
-              <button type="button" className="icon-btn" onClick={() => setDetail(null)}>
-                <Icon name="x" size="sm" />
-              </button>
+      <Modal
+        open={detail !== null}
+        onClose={() => setDetail(null)}
+        title={detail?.nameEn || 'Department Details'}
+        subtitle={detail ? `Code: ${detail.code} · ${detail.type}` : undefined}
+        icon="building"
+        size="sm"
+        footer={
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setDetail(null)}>
+            Close
+          </button>
+        }
+      >
+        {detail && (
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between"><span className="muted">Code</span><b className="font-mono">{detail.code}</b></div>
+            <div className="flex justify-between"><span className="muted">Arabic Name</span><b>{detail.nameAr}</b></div>
+            <div className="flex justify-between"><span className="muted">Type</span><span className="chip">{detail.type}</span></div>
+            <div className="flex justify-between">
+              <span className="muted">Status</span>
+              <span className={detail.isActive ? 'chip chip-primary' : 'chip chip-danger'}>
+                {detail.isActive ? 'Active' : 'Inactive'}
+              </span>
             </div>
-            <div className="space-y-2.5 text-sm">
-              <div className="flex justify-between"><span className="muted">Code</span><b className="font-mono">{detail.code}</b></div>
-              <div className="flex justify-between"><span className="muted">Arabic Name</span><b>{detail.nameAr}</b></div>
-              <div className="flex justify-between"><span className="muted">Type</span><span className="chip">{detail.type}</span></div>
-              <div className="flex justify-between">
-                <span className="muted">Status</span>
-                <span className={detail.isActive ? 'chip chip-primary' : 'chip chip-danger'}>
-                  {detail.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="muted">Head Doctor (EN)</span>
-                <b>{detail.headDoctorNameEn || 'Unassigned'}</b>
-              </div>
-              <div className="flex justify-between">
-                <span className="muted">Head Doctor (AR)</span>
-                <b>{detail.headDoctorNameAr || '—'}</b>
-              </div>
+            <div className="flex justify-between">
+              <span className="muted">Head Doctor (EN)</span>
+              <b>{detail.headDoctorNameEn || 'Unassigned'}</b>
             </div>
-            <div className="flex justify-end mt-4">
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => setDetail(null)}>Close</button>
+            <div className="flex justify-between">
+              <span className="muted">Head Doctor (AR)</span>
+              <b>{detail.headDoctorNameAr || '—'}</b>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 };

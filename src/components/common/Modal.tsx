@@ -1,72 +1,113 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '../icons/Icon';
 
+export type ModalSize = 'sm' | 'md' | 'lg' | 'xl';
+export type ModalTone = 'default' | 'info' | 'warning' | 'danger' | 'success';
+
 interface ModalProps {
-  isOpen: boolean;
+  open?: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   title: string;
   subtitle?: string;
+  icon?: string;
   iconName?: string;
-  tone?: 'info' | 'danger' | 'warning' | 'success';
-  size?: 'sm' | 'md' | 'lg';
-  children: React.ReactNode;
+  tone?: ModalTone;
+  size?: ModalSize;
+  busy?: boolean;
   footer?: React.ReactNode;
+  children: React.ReactNode;
 }
 
+const SIZE_WIDTH: Record<ModalSize, string> = {
+  sm: '440px',
+  md: '540px',
+  lg: '680px',
+  xl: '820px',
+};
+
 export const Modal: React.FC<ModalProps> = ({
+  open,
   isOpen,
   onClose,
   title,
   subtitle,
-  iconName = 'info',
-  tone = 'info',
+  icon,
+  iconName,
+  tone = 'default',
   size = 'md',
+  busy = false,
+  footer,
   children,
-  footer
 }) => {
+  const visible = Boolean(open ?? isOpen);
+  const resolvedIcon = icon ?? iconName;
+
   useEffect(() => {
+    if (!visible) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) onClose();
+      if (e.key === 'Escape' && !busy) {
+        onClose();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [visible, busy, onClose]);
 
-  return (
+  if (!visible) return null;
+
+  return createPortal(
     <div
-      className="overlay"
+      className="modal-backdrop"
       role="dialog"
       aria-modal="true"
-      onClick={e => {
-        if (e.target === e.currentTarget) onClose();
+      aria-label={title}
+      onClick={() => {
+        if (!busy) onClose();
       }}
     >
-      <div className={`modal ${size === 'lg' ? 'lg' : ''}`}>
-        <div className="modal-head">
-          <div className={`modal-ico ${tone}`}>
-            <Icon name={iconName} size="md" />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h3>{title}</h3>
-            {subtitle && <p>{subtitle}</p>}
+      <div
+        className="modal"
+        style={{ maxWidth: SIZE_WIDTH[size] }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="modal-head-bar">
+          <div className="flex items-start gap-3 min-w-0">
+            {resolvedIcon && (
+              <div className={`modal-head-icon ${tone === 'danger' || tone === 'warning' ? 'danger' : ''}`}>
+                <Icon name={resolvedIcon} size="md" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <h3 className="text-lg font-bold leading-snug">{title}</h3>
+              {subtitle && <p className="text-xs muted mt-0.5 leading-relaxed">{subtitle}</p>}
+            </div>
           </div>
           <button
             type="button"
             className="icon-btn"
-            style={{ width: '32px', height: '32px' }}
+            aria-label="Close modal"
+            disabled={busy}
             onClick={onClose}
-            aria-label="Close dialog"
           >
             <Icon name="x" size="sm" />
           </button>
         </div>
 
-        <div className="modal-body">{children}</div>
+        <div className="modal-body-scroll">{children}</div>
 
-        {footer && <div className="modal-foot">{footer}</div>}
+        {footer && <div className="modal-foot-bar">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

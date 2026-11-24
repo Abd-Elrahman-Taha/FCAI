@@ -19,6 +19,7 @@ import type {
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';
+import { Modal } from '../../components/common/Modal';
 import { useAuth } from '../../context/AuthContext';
 
 const emptyRow = (sortOrder: number): GradeScaleRowDto => ({
@@ -440,75 +441,75 @@ export const AdminGradeScale: React.FC = () => {
       )}
 
       {/* Create Version Modal */}
-      {showCreate && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal card card-pad" style={{ maxWidth: '480px', width: '100%' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">New Grade Scale Version</h3>
-              <button type="button" className="icon-btn" onClick={() => !creating && setShowCreate(false)}>
-                <Icon name="x" size="sm" />
-              </button>
-            </div>
-            {createError && (
-              <div className="alert alert-danger mb-3 text-sm">
-                <Icon name="alert" size="sm" />
-                <span>{createError}</span>
-              </div>
-            )}
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="label">Version Name</label>
-                <input
-                  className="input"
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  placeholder="e.g. Bylaw 2026 Grade Scale"
-                  required
-                />
-              </div>
-              <div>
-                <label className="label">Effective From</label>
-                <input
-                  type="date"
-                  className="input"
-                  value={effectiveFrom}
-                  onChange={e => setEffectiveFrom(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label className="label">Clone From Base Version (Optional)</label>
-                <select className="input" value={baseVersionId} onChange={e => setBaseVersionId(e.target.value)}>
-                  <option value="">None</option>
-                  {versions.map(v => (
-                    <option key={v.id} value={String(v.id)}>
-                      {v.name} (#{v.id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {!baseVersionId && (
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={useDefaultScale}
-                    onChange={e => setUseDefaultScale(e.target.checked)}
-                  />
-                  <span>Initialize with default FCAI grade scale rows</span>
-                </label>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" className="btn btn-outline" onClick={() => setShowCreate(false)} disabled={creating}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={creating}>
-                  {creating ? 'Creating...' : 'Create Draft'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="New Grade Scale Version"
+        subtitle="Create a new editable draft version or clone an existing scale."
+        icon="scale"
+        size="sm"
+        busy={creating}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline" onClick={() => setShowCreate(false)} disabled={creating}>
+              Cancel
+            </button>
+            <button type="submit" form="grade-scale-create-form" className="btn btn-primary" disabled={creating}>
+              {creating ? 'Creating...' : 'Create Draft'}
+            </button>
+          </>
+        }
+      >
+        {createError && (
+          <div className="alert alert-danger mb-4 text-sm">
+            <Icon name="alert" size="sm" />
+            <span>{createError}</span>
           </div>
-        </div>
-      )}
+        )}
+        <form id="grade-scale-create-form" onSubmit={handleCreate} className="space-y-4">
+          <div>
+            <label className="label">Version Name</label>
+            <input
+              className="input"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              placeholder="e.g. Bylaw 2026 Grade Scale"
+              required
+            />
+          </div>
+          <div>
+            <label className="label">Effective From</label>
+            <input
+              type="date"
+              className="input"
+              value={effectiveFrom}
+              onChange={e => setEffectiveFrom(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="label">Clone From Base Version (Optional)</label>
+            <select className="input" value={baseVersionId} onChange={e => setBaseVersionId(e.target.value)}>
+              <option value="">None</option>
+              {versions.map(v => (
+                <option key={v.id} value={String(v.id)}>
+                  {v.name} (#{v.id})
+                </option>
+              ))}
+            </select>
+          </div>
+          {!baseVersionId && (
+            <label className="flex items-center gap-2.5 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useDefaultScale}
+                onChange={e => setUseDefaultScale(e.target.checked)}
+              />
+              <span>Initialize with default FCAI grade scale rows</span>
+            </label>
+          )}
+        </form>
+      </Modal>
     </div>
   );
 };

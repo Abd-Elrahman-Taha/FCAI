@@ -551,11 +551,11 @@ svg.icon ellipse {
 
 /* ---------- Cards & Entrance Animations ---------- */
 .content > * {
-  animation: contentFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: contentFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes contentFadeIn {
   from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; transform: none; }
 }
 
 .dot-live {
@@ -3952,27 +3952,241 @@ html:not([data-theme="dark"]):not(.dark) {
 .modal-backdrop {
   position: fixed !important;
   inset: 0 !important;
-  z-index: 1200 !important;
+  z-index: 1400 !important;
   display: flex !important;
   align-items: flex-start !important;
   justify-content: center !important;
-  padding: 28px 16px 40px !important;
+  padding: clamp(20px, 6vh, 64px) 16px 36px !important;
   overflow-y: auto !important;
-  background: rgba(2, 16, 36, 0.65) !important;
-  backdrop-filter: blur(6px) !important;
-  -webkit-backdrop-filter: blur(6px) !important;
-  animation: fade var(--t) var(--ease);
+  background: rgba(2, 12, 27, 0.68) !important;
+  backdrop-filter: blur(8px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(1.2) !important;
+  animation: modalBackdropIn 0.18s ease-out !important;
+}
+
+@keyframes modalBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .modal-backdrop > .modal,
 .overlay > .modal {
   position: relative !important;
   margin: 0 auto !important;
-  max-height: calc(100vh - 56px) !important;
+  max-height: calc(100vh - clamp(40px, 12vh, 100px)) !important;
   overflow-y: auto !important;
+  overflow-x: hidden !important;
   display: flex !important;
   flex-direction: column !important;
   width: 100%;
+  border-radius: 20px !important;
+  background: #ffffff !important;
+  color: var(--text) !important;
+  border: 1px solid rgba(15, 23, 42, 0.1) !important;
+  box-shadow:
+    0 24px 64px -12px rgba(2, 16, 36, 0.32),
+    0 8px 24px -6px rgba(2, 16, 36, 0.16),
+    0 0 0 1px rgba(5, 38, 89, 0.06) !important;
+  animation: modalPanelIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  transform: none !important;
+}
+
+/* Executive Royal-Navy to Sky-Blue Top Accent Bar on Every Modal */
+.modal-backdrop > .modal::before,
+.overlay > .modal::before {
+  content: '';
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3.5px;
+  min-height: 3.5px;
+  margin: -22px -22px 18px;
+  background: linear-gradient(90deg, #052659 0%, #0284c7 55%, #38bdf8 100%);
+  border-radius: 20px 20px 0 0;
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+/* When modal uses structured .modal-head / .modal-body (no .card-pad), accent sits flush at top */
+.modal-backdrop > .modal:not(.card-pad)::before,
+.overlay > .modal:not(.card-pad)::before {
+  margin: 0;
+}
+
+/* Dark Mode Executive Glass Surface for Modals */
+[data-theme="dark"] .modal-backdrop > .modal,
+.dark .modal-backdrop > .modal,
+[data-theme="dark"] .overlay > .modal,
+.dark .overlay > .modal {
+  background: linear-gradient(180deg, #091c3a 0%, #061329 100%) !important;
+  color: #f1f5f9 !important;
+  border: 1px solid rgba(56, 189, 248, 0.26) !important;
+  box-shadow:
+    0 28px 70px -12px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(56, 189, 248, 0.14),
+    0 0 32px rgba(14, 165, 233, 0.14) !important;
+}
+
+/* CRITICAL: Never let modals jump or glare on hover even when carrying .card class */
+.modal-backdrop > .modal:hover,
+.overlay > .modal:hover,
+[data-theme="dark"] .modal-backdrop > .modal:hover,
+.dark .modal-backdrop > .modal:hover,
+[data-theme="light"] .modal-backdrop > .modal:hover,
+:root:not([data-theme="dark"]) .modal-backdrop > .modal:hover {
+  transform: none !important;
+}
+[data-theme="dark"] .modal-backdrop > .modal:hover,
+.dark .modal-backdrop > .modal:hover,
+[data-theme="dark"] .overlay > .modal:hover,
+.dark .overlay > .modal:hover {
+  border-color: rgba(56, 189, 248, 0.34) !important;
+  box-shadow:
+    0 28px 70px -12px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(56, 189, 248, 0.18),
+    0 0 36px rgba(14, 165, 233, 0.16) !important;
+}
+[data-theme="light"] .modal-backdrop > .modal:hover,
+:root:not([data-theme="dark"]) .modal-backdrop > .modal:hover,
+[data-theme="light"] .overlay > .modal:hover,
+:root:not([data-theme="dark"]) .overlay > .modal:hover {
+  border-color: rgba(5, 38, 89, 0.16) !important;
+  box-shadow:
+    0 24px 64px -12px rgba(2, 16, 36, 0.32),
+    0 8px 24px -6px rgba(2, 16, 36, 0.16) !important;
+}
+
+/* Refined Modal Header, Close Button, Inputs & Scrollbar */
+.modal .icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+}
+.modal .icon-btn:hover {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--text);
+  border-color: rgba(148, 163, 184, 0.24);
+}
+[data-theme="dark"] .modal .icon-btn:hover,
+.dark .modal .icon-btn:hover {
+  background: rgba(56, 189, 248, 0.14);
+  color: #ffffff;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.modal .label {
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.modal-head-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+}
+[data-theme="dark"] .modal-head-bar,
+.dark .modal-head-bar {
+  border-bottom-color: rgba(56, 189, 248, 0.16);
+}
+.modal-head-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: rgba(5, 38, 89, 0.08);
+  color: #052659;
+  border: 1px solid rgba(5, 38, 89, 0.12);
+}
+[data-theme="dark"] .modal-head-icon,
+.dark .modal-head-icon {
+  background: rgba(56, 189, 248, 0.14);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.28);
+}
+.modal-head-icon.danger {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.2);
+}
+[data-theme="dark"] .modal-head-icon.danger,
+.dark .modal-head-icon.danger {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+.modal-body-scroll {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+.modal-foot-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 24px 18px;
+  border-top: 1px solid var(--border);
+  background: rgba(248, 250, 252, 0.75);
+  border-radius: 0 0 20px 20px;
+}
+[data-theme="dark"] .modal-foot-bar,
+.dark .modal-foot-bar {
+  border-top-color: rgba(56, 189, 248, 0.14);
+  background: rgba(4, 15, 34, 0.7);
+}
+
+.modal::-webkit-scrollbar,
+.modal-body-scroll::-webkit-scrollbar {
+  width: 7px;
+}
+.modal::-webkit-scrollbar-thumb,
+.modal-body-scroll::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 99px;
+}
+[data-theme="dark"] .modal::-webkit-scrollbar-thumb,
+.dark .modal::-webkit-scrollbar-thumb,
+[data-theme="dark"] .modal-body-scroll::-webkit-scrollbar-thumb,
+.dark .modal-body-scroll::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.28);
+}
+
+@media (max-width: 640px) {
+  .overlay,
+  .modal-backdrop {
+    padding: 14px 10px 24px !important;
+  }
+  .modal-head-bar { padding: 16px 18px 14px; }
+  .modal-body-scroll { padding: 16px 18px; }
+  .modal-foot-bar { padding: 12px 18px 16px; }
 }
 
 /* Ensure native <select> and <option> dropdowns are always readable */

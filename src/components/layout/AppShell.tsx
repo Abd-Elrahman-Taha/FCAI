@@ -42,10 +42,10 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, isFullShell = t
         <AnimatePresence mode="wait">
           <motion.main
             key={currentPath}
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             className="content"
             id="content"
           >

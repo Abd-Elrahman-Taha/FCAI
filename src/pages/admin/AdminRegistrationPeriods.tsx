@@ -28,6 +28,7 @@ import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';
 import { ActiveSemesterCard } from '../../components/common/ActiveSemesterCard';
+import { Modal } from '../../components/common/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { useAcademic } from '../../context/AcademicContext';
 
@@ -620,335 +621,324 @@ export const AdminRegistrationPeriods: React.FC = () => {
         </div>
       )}
 
-      {/* Create / Edit Semester Modal (Top-Aligned Fixed Overlay) */}
-      {modalMode && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => !submitting && setModalMode(null)}>
-          <div className="modal card card-pad" style={{ maxWidth: '540px' }} onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">
-                {modalMode === 'create' ? 'Create Semester' : 'Edit Semester'}
-              </h3>
-              <button type="button" className="icon-btn" onClick={() => !submitting && setModalMode(null)}>
-                <Icon name="x" size="sm" />
-              </button>
-            </div>
+      {/* Create / Edit Semester Modal */}
+      <Modal
+        open={modalMode !== null}
+        onClose={() => setModalMode(null)}
+        title={modalMode === 'create' ? 'Create Semester' : 'Edit Semester'}
+        subtitle={
+          modalMode === 'create'
+            ? 'Add a Fall, Spring, or Summer semester inside an existing academic year.'
+            : 'Update semester name and date boundaries.'
+        }
+        icon="calendarCheck"
+        size="md"
+        busy={submitting}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline" onClick={() => setModalMode(null)} disabled={submitting}>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="semester-form"
+              className="btn btn-primary"
+              disabled={submitting || (modalMode === 'create' && years.length === 0)}
+            >
+              {submitting ? 'Saving...' : modalMode === 'create' ? 'Create Semester' : 'Save Changes'}
+            </button>
+          </>
+        }
+      >
+        {formError && (
+          <div className="alert alert-danger mb-4 text-sm">
+            <Icon name="alert" size="sm" />
+            <span>{formError}</span>
+          </div>
+        )}
 
-            {formError && (
-              <div className="alert alert-danger mb-3 text-sm">
-                <Icon name="alert" size="sm" />
-                <span>{formError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveSemester} className="space-y-4">
-              {modalMode === 'create' && (
-                <>
-                  <div>
-                    <label className="label">Academic Year</label>
-                    {years.length === 0 ? (
-                      <div className="alert alert-warning text-xs mt-1">
-                        <span>
-                          No academic years exist yet.{' '}
-                          <a href="#/admin/academic-years" className="underline font-bold">
-                            Create an Academic Year first
-                          </a>
-                          .
-                        </span>
-                      </div>
-                    ) : (
-                      <>
-                        <select
-                          className="input"
-                          value={academicYearId}
-                          onChange={e => setAcademicYearId(e.target.value)}
-                          required
-                        >
-                          <option value="">Select Academic Year...</option>
-                          {years.map(y => (
-                            <option key={y.id} value={String(y.id)}>
-                              {y.name} ({y.startDate} → {y.endDate}){y.isActive ? ' · Active' : ''}
-                            </option>
-                          ))}
-                        </select>
-                        {selectedYearObj && (
-                          <p className="text-xs muted mt-1">
-                            Dates must fall within {selectedYearObj.startDate} → {selectedYearObj.endDate}.
-                          </p>
-                        )}
-                      </>
-                    )}
-                    {formApiError?.getFieldErrors('academicYearId').map((msg, i) => (
-                      <p key={i} className="text-xs text-red-500 mt-1">{msg}</p>
-                    ))}
+        <form id="semester-form" onSubmit={handleSaveSemester} className="space-y-4">
+          {modalMode === 'create' && (
+            <>
+              <div>
+                <label className="label">Academic Year</label>
+                {years.length === 0 ? (
+                  <div className="alert alert-warning text-xs mt-1">
+                    <span>
+                      No academic years exist yet.{' '}
+                      <a href="#/admin/academic-years" className="underline font-bold">
+                        Create an Academic Year first
+                      </a>
+                      .
+                    </span>
                   </div>
-
-                  <div>
-                    <label className="label">Semester Type</label>
+                ) : (
+                  <>
                     <select
                       className="input"
-                      value={semesterType}
-                      onChange={e => setSemesterType(e.target.value as SemesterType)}
+                      value={academicYearId}
+                      onChange={e => setAcademicYearId(e.target.value)}
                       required
                     >
-                      {SEMESTER_TYPES.map(t => (
-                        <option key={t} value={t}>
-                          {t}
+                      <option value="">Select Academic Year...</option>
+                      {years.map(y => (
+                        <option key={y.id} value={String(y.id)}>
+                          {y.name} ({y.startDate} → {y.endDate}){y.isActive ? ' · Active' : ''}
                         </option>
                       ))}
                     </select>
-                    {formApiError?.getFieldErrors('semesterType').map((msg, i) => (
-                      <p key={i} className="text-xs text-red-500 mt-1">{msg}</p>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              <div>
-                <label className="label">Semester Name</label>
-                <input
-                  className="input"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="e.g. Fall 2026"
-                  required
-                />
-                {formApiError?.getFieldErrors('name').map((msg, i) => (
+                    {selectedYearObj && (
+                      <p className="text-xs muted mt-1.5">
+                        Semester dates must fall inside <b>{selectedYearObj.startDate}</b> → <b>{selectedYearObj.endDate}</b>.
+                      </p>
+                    )}
+                  </>
+                )}
+                {formApiError?.getFieldErrors('academicYearId').map((msg, i) => (
                   <p key={i} className="text-xs text-red-500 mt-1">{msg}</p>
                 ))}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Start Date</label>
-                  <input
-                    type="date"
-                    className="input"
-                    value={startDate}
-                    onChange={e => setStartDate(e.target.value)}
-                    required
-                  />
-                  {formApiError?.getFieldErrors('startDate').map((msg, i) => (
-                    <p key={i} className="text-xs text-red-500 mt-1">{msg}</p>
-                  ))}
-                </div>
-                <div>
-                  <label className="label">End Date</label>
-                  <input
-                    type="date"
-                    className="input"
-                    value={endDate}
-                    onChange={e => setEndDate(e.target.value)}
-                    required
-                  />
-                  {formApiError?.getFieldErrors('endDate').map((msg, i) => (
-                    <p key={i} className="text-xs text-red-500 mt-1">{msg}</p>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" className="btn btn-outline" onClick={() => setModalMode(null)} disabled={submitting}>
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={submitting || (modalMode === 'create' && years.length === 0)}
+              <div>
+                <label className="label">Semester Type</label>
+                <select
+                  className="input"
+                  value={semesterType}
+                  onChange={e => setSemesterType(e.target.value as SemesterType)}
+                  required
                 >
-                  {submitting ? 'Saving...' : modalMode === 'create' ? 'Create Semester' : 'Save Changes'}
-                </button>
+                  {SEMESTER_TYPES.map(t => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+                {formApiError?.getFieldErrors('semesterType').map((msg, i) => (
+                  <p key={i} className="text-xs text-red-500 mt-1">{msg}</p>
+                ))}
               </div>
-            </form>
+            </>
+          )}
+
+          <div>
+            <label className="label">Semester Name</label>
+            <input
+              className="input"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. Fall 2026"
+              required
+            />
+            {formApiError?.getFieldErrors('name').map((msg, i) => (
+              <p key={i} className="text-xs text-red-500 mt-1">{msg}</p>
+            ))}
           </div>
-        </div>
-      )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="label">Start Date</label>
+              <input
+                type="date"
+                className="input"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                required
+              />
+              {formApiError?.getFieldErrors('startDate').map((msg, i) => (
+                <p key={i} className="text-xs text-red-500 mt-1">{msg}</p>
+              ))}
+            </div>
+            <div>
+              <label className="label">End Date</label>
+              <input
+                type="date"
+                className="input"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                required
+              />
+              {formApiError?.getFieldErrors('endDate').map((msg, i) => (
+                <p key={i} className="text-xs text-red-500 mt-1">{msg}</p>
+              ))}
+            </div>
+          </div>
+        </form>
+      </Modal>
 
       {/* Window Configuration Modal */}
-      {windowModal && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => !savingWindow && setWindowModal(null)}>
-          <div className="modal card card-pad" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-bold">{WINDOW_LABELS[windowModal.key]}</h3>
-                <p className="text-xs muted">{windowModal.semester.name}</p>
-              </div>
-              <button type="button" className="icon-btn" onClick={() => !savingWindow && setWindowModal(null)}>
-                <Icon name="x" size="sm" />
-              </button>
-            </div>
-
-            {windowError && (
-              <div className="alert alert-danger mb-3 text-sm">
-                <Icon name="alert" size="sm" />
-                <span>{windowError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveWindow} className="space-y-4">
-              {windowModal.key !== 'drop' && (
-                <div>
-                  <label className="label">Start Date &amp; Time</label>
-                  <input
-                    type="datetime-local"
-                    className="input"
-                    value={windowStart}
-                    onChange={e => setWindowStart(e.target.value)}
-                    required
-                  />
-                </div>
-              )}
-              <div>
-                <label className="label">
-                  {windowModal.key === 'drop' ? 'Drop Period End Date & Time' : 'End Date & Time'}
-                </label>
-                <input
-                  type="datetime-local"
-                  className="input"
-                  value={windowEnd}
-                  onChange={e => setWindowEnd(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" className="btn btn-outline" onClick={() => setWindowModal(null)} disabled={savingWindow}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={savingWindow}>
-                  {savingWindow ? 'Saving...' : 'Save Window'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        open={windowModal !== null}
+        onClose={() => setWindowModal(null)}
+        title={windowModal ? WINDOW_LABELS[windowModal.key] : 'Configure Window'}
+        subtitle={windowModal?.semester.name ?? undefined}
+        icon="clock"
+        size="sm"
+        busy={savingWindow}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline" onClick={() => setWindowModal(null)} disabled={savingWindow}>
+              Cancel
+            </button>
+            <button type="submit" form="window-form" className="btn btn-primary" disabled={savingWindow}>
+              {savingWindow ? 'Saving...' : 'Save Window'}
+            </button>
+          </>
+        }
+      >
+        {windowError && (
+          <div className="alert alert-danger mb-4 text-sm">
+            <Icon name="alert" size="sm" />
+            <span>{windowError}</span>
           </div>
-        </div>
-      )}
+        )}
+
+        <form id="window-form" onSubmit={handleSaveWindow} className="space-y-4">
+          {windowModal?.key !== 'drop' && (
+            <div>
+              <label className="label">Start Date &amp; Time</label>
+              <input
+                type="datetime-local"
+                className="input"
+                value={windowStart}
+                onChange={e => setWindowStart(e.target.value)}
+                required
+              />
+            </div>
+          )}
+          <div>
+            <label className="label">
+              {windowModal?.key === 'drop' ? 'Drop Period End Date & Time' : 'End Date & Time'}
+            </label>
+            <input
+              type="datetime-local"
+              className="input"
+              value={windowEnd}
+              onChange={e => setWindowEnd(e.target.value)}
+              required
+            />
+          </div>
+        </form>
+      </Modal>
 
       {/* Calculate Levels Modal */}
-      {calcModalSemester && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => !calculating && setCalcModalSemester(null)}>
-          <div className="modal card card-pad" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-bold">Calculate Student Levels</h3>
-                <p className="text-xs muted">{calcModalSemester.name}</p>
+      <Modal
+        open={calcModalSemester !== null}
+        onClose={() => setCalcModalSemester(null)}
+        title="Calculate Student Levels"
+        subtitle={calcModalSemester?.name ?? undefined}
+        icon="layers"
+        size="md"
+        busy={calculating}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline" onClick={() => setCalcModalSemester(null)} disabled={calculating}>
+              Close
+            </button>
+            <button type="submit" form="calc-levels-form" className="btn btn-primary" disabled={calculating}>
+              {calculating ? 'Calculating...' : 'Run Calculation'}
+            </button>
+          </>
+        }
+      >
+        <form id="calc-levels-form" onSubmit={handleCalculateLevels} className="space-y-4">
+          <label className="flex items-center gap-2.5 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={calcForce}
+              onChange={e => setCalcForce(e.target.checked)}
+            />
+            <span>Force recalculation for students who already have a level snapshot</span>
+          </label>
+
+          <div>
+            <label className="label">Specific Student IDs (optional, comma-separated)</label>
+            <input
+              className="input"
+              value={calcStudentIdsText}
+              onChange={e => setCalcStudentIdsText(e.target.value)}
+              placeholder="Leave blank to calculate for all students"
+            />
+          </div>
+
+          {calcResult && (
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-2 text-sm">
+              <div className="font-bold">Calculation Summary</div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>Total Processed: <b>{calcResult.totalStudentsProcessed}</b></div>
+                <div>Created: <b>{calcResult.createdCount}</b></div>
+                <div>Updated: <b>{calcResult.updatedCount}</b></div>
+                <div>Skipped: <b>{calcResult.skippedCount}</b></div>
+                <div>Failed: <b>{calcResult.failedCount}</b></div>
               </div>
-              <button type="button" className="icon-btn" onClick={() => !calculating && setCalcModalSemester(null)}>
-                <Icon name="x" size="sm" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCalculateLevels} className="space-y-4">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={calcForce}
-                  onChange={e => setCalcForce(e.target.checked)}
-                />
-                <span>Force recalculation for students who already have a level snapshot</span>
-              </label>
-
-              <div>
-                <label className="label">Specific Student IDs (optional, comma-separated)</label>
-                <input
-                  className="input"
-                  value={calcStudentIdsText}
-                  onChange={e => setCalcStudentIdsText(e.target.value)}
-                  placeholder="Leave blank to calculate for all students"
-                />
-              </div>
-
-              {calcResult && (
-                <div className="card card-pad bg-slate-50 dark:bg-slate-900/50 space-y-2 text-sm">
-                  <div className="font-bold">Calculation Summary</div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>Total Processed: <b>{calcResult.totalStudentsProcessed}</b></div>
-                    <div>Created: <b>{calcResult.createdCount}</b></div>
-                    <div>Updated: <b>{calcResult.updatedCount}</b></div>
-                    <div>Skipped: <b>{calcResult.skippedCount}</b></div>
-                    <div>Failed: <b>{calcResult.failedCount}</b></div>
-                  </div>
-                  {calcResult.failures && calcResult.failures.length > 0 && (
-                    <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-xs space-y-1">
-                      <div className="font-semibold text-red-500">Failures:</div>
-                      {calcResult.failures.slice(0, 10).map((f, idx) => (
-                        <div key={idx}>
-                          Student #{f.studentId}: {f.error || 'Unknown error'}
-                        </div>
-                      ))}
+              {calcResult.failures && calcResult.failures.length > 0 && (
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-xs space-y-1">
+                  <div className="font-semibold text-red-500">Failures:</div>
+                  {calcResult.failures.slice(0, 10).map((f, idx) => (
+                    <div key={idx}>
+                      Student #{f.studentId}: {f.error || 'Unknown error'}
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" className="btn btn-outline" onClick={() => setCalcModalSemester(null)}>
-                  Close
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={calculating}>
-                  {calculating ? 'Calculating...' : 'Run Calculation'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+          )}
+        </form>
+      </Modal>
 
       {/* Semester Details Modal */}
-      {detailSemester && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => setDetailSemester(null)}>
-          <div className="modal card card-pad" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-bold">{detailSemester.name}</h3>
-                <p className="text-xs muted">
-                  ID #{detailSemester.id} · {detailSemester.academicYearName} · {detailSemester.semesterType}
-                </p>
-              </div>
-              <button type="button" className="icon-btn" onClick={() => setDetailSemester(null)}>
-                <Icon name="x" size="sm" />
-              </button>
+      <Modal
+        open={detailSemester !== null}
+        onClose={() => setDetailSemester(null)}
+        title={detailSemester?.name || 'Semester Details'}
+        subtitle={
+          detailSemester
+            ? `ID #${detailSemester.id} · ${detailSemester.academicYearName} · ${detailSemester.semesterType}`
+            : undefined
+        }
+        icon="calendar"
+        size="md"
+        footer={
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setDetailSemester(null)}>
+            Close
+          </button>
+        }
+      >
+        {detailSemester && (
+          <div className="space-y-4 text-sm">
+            <div className="flex justify-between">
+              <span className="muted">Duration</span>
+              <span className="font-mono">{detailSemester.startDate} → {detailSemester.endDate}</span>
             </div>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="muted">Duration</span>
-                <span className="font-mono">{detailSemester.startDate} → {detailSemester.endDate}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="muted">Status</span>
-                <span className={detailSemester.isActive ? 'chip chip-primary' : 'chip'}>
-                  {detailSemester.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                {(['registration', 'drop', 'withdrawal', 'preference'] as WindowKey[]).map(key => {
-                  const win = detailSemester.windows?.[key];
-                  return (
-                    <div key={key} className="p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-semibold text-xs">{WINDOW_LABELS[key]}</span>
-                        <span className={windowBadgeClass(win?.status)} style={{ fontSize: '11px' }}>
-                          {win?.status || 'NotConfigured'}
-                        </span>
-                      </div>
-                      <div className="text-xs muted">
-                        Start: {win?.start ? new Date(win.start).toLocaleString() : '—'}
-                      </div>
-                      <div className="text-xs muted">
-                        End: {win?.end ? new Date(win.end).toLocaleString() : '—'}
-                      </div>
+            <div className="flex justify-between">
+              <span className="muted">Status</span>
+              <span className={detailSemester.isActive ? 'chip chip-primary' : 'chip'}>
+                {detailSemester.isActive ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              {(['registration', 'drop', 'withdrawal', 'preference'] as WindowKey[]).map(key => {
+                const win = detailSemester.windows?.[key];
+                return (
+                  <div key={key} className="p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-xs">{WINDOW_LABELS[key]}</span>
+                      <span className={windowBadgeClass(win?.status)} style={{ fontSize: '11px' }}>
+                        {win?.status || 'NotConfigured'}
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="flex justify-end mt-4">
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => setDetailSemester(null)}>
-                Close
-              </button>
+                    <div className="text-xs muted">
+                      Start: {win?.start ? new Date(win.start).toLocaleString() : '—'}
+                    </div>
+                    <div className="text-xs muted">
+                      End: {win?.end ? new Date(win.end).toLocaleString() : '—'}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 };
