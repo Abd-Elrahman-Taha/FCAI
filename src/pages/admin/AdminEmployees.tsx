@@ -52,8 +52,8 @@ export const AdminEmployees: React.FC = () => {
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [departmentId, setDepartmentId] = useState('');
-  const [jobTitle, setJobTitle] = useState('Student Affairs Officer');
-  const [hireDate, setHireDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [jobTitle, setJobTitle] = useState('');
+  const [hireDate, setHireDate] = useState('');
   const [tempPassword, setTempPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -118,8 +118,8 @@ export const AdminEmployees: React.FC = () => {
     setEmail('');
     setPhoneNumber('');
     setDepartmentId(departments[0] ? String(departments[0].id) : '');
-    setJobTitle('Student Affairs Officer');
-    setHireDate(new Date().toISOString().slice(0, 10));
+    setJobTitle('');
+    setHireDate('');
     setTempPassword('');
     setFormError(null);
   };

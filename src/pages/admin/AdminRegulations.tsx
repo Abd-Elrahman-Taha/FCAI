@@ -12,6 +12,8 @@
  * - SecondaryTrackRequirements (3):
  *   GET/PUT /api/admin/secondary-track-requirements,
  *   GET /api/admin/secondary-track-requirements/{track}
+ *
+ * Zero hardcoded static data or invented defaults.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -34,25 +36,25 @@ import { useAuth } from '../../context/AuthContext';
 
 export type RegulationsTab = 'policies' | 'credit-load' | 'tracks';
 
-const DEFAULT_POLICY_PARAMS: PolicyParametersDto = {
-  totalRequiredCredits: 144,
-  minGraduationCGPA: 2.0,
-  warningCGPAThreshold: 2.0,
-  coursePassPercentage: 50,
-  finalExamWeight: 60,
-  finalExamPassPercentage: 30,
-  finalExamDurationMinutes: 120,
-  retakeCapPercentage: 64,
-  improvementRetakeLimit: 2,
-  projectEligibilityPercentage: 70,
-  projectPassPercentage: 50,
-  trainingEligibilityPercentage: 50,
-  trainingWeeks: 4,
-  trainingHoursPerWeek: 30,
-  prerequisiteAttendancePercentage: 75,
-  honorsMinCGPA: 3.4,
-  honorsMaxRegularSemesters: 8,
-  maxStudyDurationSemesters: 16,
+const EMPTY_POLICY_PARAMS: PolicyParametersDto = {
+  totalRequiredCredits: 0,
+  minGraduationCGPA: 0,
+  warningCGPAThreshold: 0,
+  coursePassPercentage: 0,
+  finalExamWeight: 0,
+  finalExamPassPercentage: 0,
+  finalExamDurationMinutes: 0,
+  retakeCapPercentage: 0,
+  improvementRetakeLimit: 0,
+  projectEligibilityPercentage: 0,
+  projectPassPercentage: 0,
+  trainingEligibilityPercentage: 0,
+  trainingWeeks: 0,
+  trainingHoursPerWeek: 0,
+  prerequisiteAttendancePercentage: 0,
+  honorsMinCGPA: 0,
+  honorsMaxRegularSemesters: 0,
+  maxStudyDurationSemesters: null,
 };
 
 const PARAM_FIELDS: { key: keyof PolicyParametersDto; label: string; step?: string; nullable?: boolean }[] = [
@@ -85,17 +87,17 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
   const [selectedPolicy, setSelectedPolicy] = useState<PolicyVersionDto | null>(null);
   const [loadingPolicies, setLoadingPolicies] = useState<boolean>(true);
   const [policyError, setPolicyError] = useState<string | null>(null);
-  const [cohortLookupYear, setCohortLookupYear] = useState<string>(String(new Date().getFullYear()));
+  const [cohortLookupYear, setCohortLookupYear] = useState<string>('');
   const [cohortResult, setCohortResult] = useState<PolicyVersionDto | null>(null);
   const [cohortSearched, setCohortSearched] = useState<boolean>(false);
 
   // Policy Create / Edit Modal
   const [policyModal, setPolicyModal] = useState<'create' | 'edit' | null>(null);
   const [pName, setPName] = useState<string>('');
-  const [pCohortFrom, setPCohortFrom] = useState<string>(String(new Date().getFullYear()));
+  const [pCohortFrom, setPCohortFrom] = useState<string>('');
   const [pCohortTo, setPCohortTo] = useState<string>('');
   const [pDecisionRef, setPDecisionRef] = useState<string>('');
-  const [pParams, setPParams] = useState<PolicyParametersDto>({ ...DEFAULT_POLICY_PARAMS });
+  const [pParams, setPParams] = useState<PolicyParametersDto>({ ...EMPTY_POLICY_PARAMS });
   const [savingPolicy, setSavingPolicy] = useState<boolean>(false);
   const [policyFormError, setPolicyFormError] = useState<string | null>(null);
 
@@ -110,8 +112,10 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
   const [creditLoadData, setCreditLoadData] = useState<CreditLoadRulesDto | null>(null);
   const [ruleItems, setRuleItems] = useState<SetCreditLoadRuleItemDto[]>([]);
   const [publishEffectiveFrom, setPublishEffectiveFrom] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [loadingRules, setLoadingRules] = useState<boolean>(false);
+  const [loadingRules, setLoadingRules] = useState<boolean>(initialTab === 'credit-load');
+  const [rulesNotice, setRulesNotice] = useState<string | null>(null);
   const [rulesError, setRulesError] = useState<string | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const [publishingRules, setPublishingRules] = useState<boolean>(false);
 
   // ---- Tab 3: Secondary Track Requirements ----
@@ -146,25 +150,34 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
   const loadCreditLoadRules = useCallback(async (policyVersionIdStr?: string, onDateStr?: string) => {
     setLoadingRules(true);
     setRulesError(null);
+    setRulesNotice(null);
+    setPublishError(null);
     try {
       const data = await api.policies.getCreditLoadRules({
         policyVersionId: policyVersionIdStr ? Number(policyVersionIdStr) : undefined,
         onDate: onDateStr || undefined,
       });
       setCreditLoadData(data);
-      setRuleItems(
-        (data.rules ?? []).map(r => ({
-          ruleType: r.ruleType,
-          name: r.name ?? '',
-          minCgpa: r.minCgpa,
-          maxCgpaExclusive: r.maxCgpaExclusive,
-          minCredits: r.minCredits,
-          maxCredits: r.maxCredits,
-        }))
-      );
+      const mapped: SetCreditLoadRuleItemDto[] = (data.rules ?? []).map(r => ({
+        ruleType: r.ruleType,
+        name: r.name ?? '',
+        minCgpa: r.minCgpa,
+        maxCgpaExclusive: r.maxCgpaExclusive,
+        minCredits: r.minCredits,
+        maxCredits: r.maxCredits,
+      }));
+      setRuleItems(mapped);
+      if (mapped.length === 0) {
+        setRulesNotice('No credit load rules are currently defined for this policy/date. Add rules below and click Publish New Rule Set.');
+      }
     } catch (err: unknown) {
-      setRulesError(err instanceof Error ? err.message : 'Failed to load credit load rules.');
       setCreditLoadData(null);
+      setRuleItems([]);
+      if (err instanceof ApiError && err.status === 404) {
+        setRulesNotice(err.message || 'No credit load rules found for this policy/date yet. You can define and publish a new set below.');
+      } else {
+        setRulesError(err instanceof Error ? err.message : 'Failed to load credit load rules.');
+      }
     } finally {
       setLoadingRules(false);
     }
@@ -191,6 +204,7 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
     }
   }, [showToast]);
 
+  // Initial load for Policy Versions + (if starting directly on Credit Load Rules tab) Credit Load Rules
   useEffect(() => {
     let cancelled = false;
     api.policies
@@ -198,9 +212,10 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
       .then(async list => {
         if (cancelled) return;
         setPolicies(list);
-        const targetId = list.find(p => p.isActive)?.id ?? list[0]?.id;
-        if (targetId !== undefined) {
-          const detail = await api.policies.getPolicyById(targetId);
+        const activeOrFirst = list.find(p => p.isActive) ?? list[0];
+        if (activeOrFirst) {
+          setRulesPolicyId(prev => prev || String(activeOrFirst.id));
+          const detail = await api.policies.getPolicyById(activeOrFirst.id);
           if (!cancelled) {
             setSelectedPolicy(detail);
             setCohortToPatch(detail.effectiveCohortTo ? String(detail.effectiveCohortTo) : '');
@@ -214,26 +229,12 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
       .finally(() => {
         if (!cancelled) setLoadingPolicies(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
-  const handleSelectTab = (next: RegulationsTab) => {
-    setTab(next);
-    if (next === 'credit-load' && !creditLoadData && !loadingRules) {
-      void loadCreditLoadRules(rulesPolicyId, rulesOnDate);
-    }
-    if (next === 'tracks' && tracks.length === 0 && !loadingTracks) {
-      void loadTracks();
-    }
-  };
-
-  useEffect(() => {
     if (initialTab === 'credit-load') {
       api.policies
         .getCreditLoadRules()
         .then(data => {
+          if (cancelled) return;
           setCreditLoadData(data);
           setRuleItems(
             (data.rules ?? []).map(r => ({
@@ -245,10 +246,38 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
               maxCredits: r.maxCredits,
             }))
           );
+          setRulesError(null);
+          if (!data.rules || data.rules.length === 0) {
+            setRulesNotice('No credit load rules are published yet. Add rows below and publish.');
+          }
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          if (cancelled) return;
+          if (err instanceof ApiError && err.status === 404) {
+            setRulesNotice(err.message || 'No active credit load rules found yet. Define rules below and publish.');
+          } else {
+            setRulesError(err instanceof Error ? err.message : 'Failed to load credit load rules.');
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingRules(false);
+        });
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [initialTab]);
+
+  const handleSelectTab = (next: RegulationsTab) => {
+    setTab(next);
+    if (next === 'credit-load' && !creditLoadData && !loadingRules) {
+      void loadCreditLoadRules(rulesPolicyId, rulesOnDate);
+    }
+    if (next === 'tracks' && tracks.length === 0 && !loadingTracks) {
+      void loadTracks();
+    }
+  };
 
   const handleSelectPolicy = async (id: number) => {
     try {
@@ -263,10 +292,10 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
   const openPolicyCreate = () => {
     setPolicyModal('create');
     setPName('');
-    setPCohortFrom(String(new Date().getFullYear()));
+    setPCohortFrom('');
     setPCohortTo('');
     setPDecisionRef('');
-    setPParams({ ...DEFAULT_POLICY_PARAMS });
+    setPParams({ ...EMPTY_POLICY_PARAMS });
     setPolicyFormError(null);
   };
 
@@ -361,17 +390,47 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
   };
 
   const handlePublishCreditRules = async () => {
+    setPublishError(null);
+    if (!publishEffectiveFrom) {
+      setPublishError('Please choose an Effective From date.');
+      return;
+    }
+    if (ruleItems.length === 0) {
+      setPublishError('Add at least one credit load rule before publishing.');
+      return;
+    }
     setPublishingRules(true);
     try {
+      const sanitizedRules: SetCreditLoadRuleItemDto[] = ruleItems.map(r => ({
+        ruleType: r.ruleType,
+        name: r.name?.trim() || null,
+        minCgpa: r.ruleType === 'CgpaBand' ? r.minCgpa ?? null : null,
+        maxCgpaExclusive: r.ruleType === 'CgpaBand' ? r.maxCgpaExclusive ?? null : null,
+        minCredits: r.minCredits ?? null,
+        maxCredits: Number(r.maxCredits),
+      }));
       const res = await api.policies.updateCreditLoadRules({
         policyVersionId: rulesPolicyId ? Number(rulesPolicyId) : creditLoadData?.policyVersionId ?? null,
         effectiveFrom: publishEffectiveFrom,
-        rules: ruleItems,
+        rules: sanitizedRules,
       });
       setCreditLoadData(res.data);
+      setRuleItems(
+        (res.data.rules ?? []).map(r => ({
+          ruleType: r.ruleType,
+          name: r.name ?? '',
+          minCgpa: r.minCgpa,
+          maxCgpaExclusive: r.maxCgpaExclusive,
+          minCredits: r.minCredits,
+          maxCredits: r.maxCredits,
+        }))
+      );
+      setRulesNotice(null);
       showToast('Credit Load Rules Published', res.message, 'success');
     } catch (err: unknown) {
-      showToast('Publish Failed', err instanceof Error ? err.message : 'Failed to publish credit load rules.', 'error');
+      const msg = err instanceof ApiError || err instanceof Error ? err.message : 'Failed to publish credit load rules.';
+      setPublishError(msg);
+      showToast('Publish Failed', msg, 'error');
     } finally {
       setPublishingRules(false);
     }
@@ -418,10 +477,10 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
         crumbs={[
           { label: 'Admin', href: '#/admin/dashboard' },
           { label: 'Operations' },
-          { label: 'College Regulations & Policies' },
+          { label: tab === 'credit-load' ? 'Credit Load Rules' : 'College Regulations & Policies' },
         ]}
-        title="College Regulations & Academic Policies"
-        subtitle="Manage versioned academic policies, CGPA credit-load rules, and secondary-school track course requirements."
+        title={tab === 'credit-load' ? 'Student Credit Load Rules' : 'College Regulations & Academic Policies'}
+        subtitle="Manage versioned academic policies, student semester credit-hour limits, and secondary-school track course requirements."
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             <button
@@ -458,7 +517,8 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
               <input
                 type="number"
                 className="input"
-                style={{ width: '110px' }}
+                style={{ width: '120px' }}
+                placeholder="e.g. 2026"
                 value={cohortLookupYear}
                 onChange={e => setCohortLookupYear(e.target.value)}
               />
@@ -489,28 +549,32 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-4 card card-pad space-y-2">
                 <div className="font-bold text-sm mb-2">Policy Versions ({policies.length})</div>
-                {policies.map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => void handleSelectPolicy(p.id)}
-                    className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
-                      selectedPolicy?.id === p.id
-                        ? 'border-sky-400 bg-sky-500/10'
-                        : 'border-slate-200 dark:border-slate-800 hover:border-sky-400/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-sm">{p.name || `Policy v${p.versionNumber}`}</span>
-                      <span className={p.isActive ? 'chip chip-primary' : 'chip'}>
-                        {p.isActive ? 'Active' : 'Draft'}
-                      </span>
-                    </div>
-                    <div className="text-xs muted mt-1">
-                      v{p.versionNumber} · Cohorts {p.effectiveCohortFrom} → {p.effectiveCohortTo ?? 'Present'}
-                    </div>
-                  </button>
-                ))}
+                {policies.length === 0 ? (
+                  <p className="text-xs muted">No policy versions exist yet.</p>
+                ) : (
+                  policies.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => void handleSelectPolicy(p.id)}
+                      className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                        selectedPolicy?.id === p.id
+                          ? 'border-sky-400 bg-sky-500/10'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-sky-400/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-sm">{p.name || `Policy v${p.versionNumber}`}</span>
+                        <span className={p.isActive ? 'chip chip-primary' : 'chip'}>
+                          {p.isActive ? 'Active' : 'Draft'}
+                        </span>
+                      </div>
+                      <div className="text-xs muted mt-1">
+                        v{p.versionNumber} · Cohorts {p.effectiveCohortFrom} → {p.effectiveCohortTo ?? 'Present'}
+                      </div>
+                    </button>
+                  ))
+                )}
               </div>
 
               <div className="lg:col-span-8">
@@ -599,6 +663,15 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
       {/* ==================== TAB 2: CREDIT LOAD RULES ==================== */}
       {tab === 'credit-load' && (
         <div className="space-y-4">
+          <div className="alert alert-info text-xs">
+            <Icon name="info" size="sm" />
+            <div>
+              <b>What are Credit Load Rules?</b> They control the minimum and maximum credit hours a student can register in a semester based on 3 rule types:
+              <b> Summer</b> (summer term limit), <b>FirstRegularSemester</b> (new freshmen limit), and <b>CgpaBand</b> (limits based on a student&apos;s CGPA range).
+              Publishing a new rule set automatically closes the previous active set on the backend.
+            </div>
+          </div>
+
           <div className="card card-pad flex flex-wrap items-end justify-between gap-3">
             <div className="flex flex-wrap items-end gap-3">
               <div>
@@ -606,18 +679,21 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
                 <select
                   className="input"
                   value={rulesPolicyId}
-                  onChange={e => setRulesPolicyId(e.target.value)}
+                  onChange={e => {
+                    setRulesPolicyId(e.target.value);
+                    void loadCreditLoadRules(e.target.value, rulesOnDate);
+                  }}
                 >
                   <option value="">Active Policy (Default)</option>
                   {policies.map(p => (
                     <option key={p.id} value={String(p.id)}>
-                      {p.name} (v{p.versionNumber})
+                      {p.name} (v{p.versionNumber}){p.isActive ? ' · Active' : ''}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="label text-xs">On Date (Optional)</label>
+                <label className="label text-xs">Effective On Date (Optional)</label>
                 <input
                   type="date"
                   className="input"
@@ -642,6 +718,7 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
                   className="input"
                   value={publishEffectiveFrom}
                   onChange={e => setPublishEffectiveFrom(e.target.value)}
+                  required
                 />
               </div>
               <button
@@ -650,7 +727,7 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
                 onClick={() =>
                   setRuleItems(prev => [
                     ...prev,
-                    { ruleType: 'CgpaBand', name: '', minCgpa: 2.0, maxCgpaExclusive: 3.0, minCredits: 12, maxCredits: 18 },
+                    { ruleType: 'CgpaBand', name: '', minCgpa: null, maxCgpaExclusive: null, minCredits: null, maxCredits: 0 },
                   ])
                 }
               >
@@ -667,129 +744,175 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
             </div>
           </div>
 
+          {rulesError && (
+            <div className="alert alert-danger text-sm">
+              <Icon name="alert" size="sm" />
+              <span>{rulesError}</span>
+            </div>
+          )}
+
+          {rulesNotice && (
+            <div className="alert alert-warning text-sm">
+              <Icon name="info" size="sm" />
+              <span>{rulesNotice}</span>
+            </div>
+          )}
+
+          {publishError && (
+            <div className="alert alert-danger text-sm">
+              <Icon name="alert" size="sm" />
+              <span>{publishError}</span>
+            </div>
+          )}
+
           {loadingRules ? (
             <CardSkeleton />
-          ) : rulesError ? (
-            <div className="card card-pad state">
-              <div className="state-art danger"><Icon name="alert" size="lg" /></div>
-              <h3>Could not load credit load rules</h3>
-              <p className="text-sm muted">{rulesError}</p>
-            </div>
           ) : (
             <div className="card overflow-x-auto">
               {creditLoadData && (
                 <div className="p-4 border-b border-slate-200 dark:border-slate-800 text-xs muted">
-                  Policy Version #{creditLoadData.policyVersionId} · Effective From: <b>{creditLoadData.effectiveFrom}</b>
+                  Policy Version #{creditLoadData.policyVersionId} · Active Effective From: <b>{creditLoadData.effectiveFrom}</b> · {ruleItems.length} rule(s)
                 </div>
               )}
-              <table className="table w-full text-xs">
-                <thead>
-                  <tr>
-                    <th>Rule Type</th>
-                    <th>Name</th>
-                    <th>Min CGPA</th>
-                    <th>Max CGPA (Excl.)</th>
-                    <th>Min Credits</th>
-                    <th>Max Credits</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {ruleItems.map((r, idx) => (
-                    <tr key={idx}>
-                      <td>
-                        <select
-                          className="input"
-                          value={r.ruleType}
-                          onChange={e =>
-                            setRuleItems(prev =>
-                              prev.map((item, i) => (i === idx ? { ...item, ruleType: e.target.value as CreditLoadRuleType } : item))
-                            )
-                          }
-                        >
-                          <option value="Summer">Summer</option>
-                          <option value="FirstRegularSemester">FirstRegularSemester</option>
-                          <option value="CgpaBand">CgpaBand</option>
-                        </select>
-                      </td>
-                      <td>
-                        <input
-                          className="input"
-                          value={r.name ?? ''}
-                          onChange={e =>
-                            setRuleItems(prev => prev.map((item, i) => (i === idx ? { ...item, name: e.target.value } : item)))
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          step="0.01"
-                          className="input"
-                          style={{ width: '80px' }}
-                          value={r.minCgpa ?? ''}
-                          onChange={e =>
-                            setRuleItems(prev =>
-                              prev.map((item, i) => (i === idx ? { ...item, minCgpa: e.target.value === '' ? null : Number(e.target.value) } : item))
-                            )
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          step="0.01"
-                          className="input"
-                          style={{ width: '80px' }}
-                          value={r.maxCgpaExclusive ?? ''}
-                          onChange={e =>
-                            setRuleItems(prev =>
-                              prev.map((item, i) =>
-                                i === idx ? { ...item, maxCgpaExclusive: e.target.value === '' ? null : Number(e.target.value) } : item
-                              )
-                            )
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          className="input"
-                          style={{ width: '76px' }}
-                          value={r.minCredits ?? ''}
-                          onChange={e =>
-                            setRuleItems(prev =>
-                              prev.map((item, i) => (i === idx ? { ...item, minCredits: e.target.value === '' ? null : Number(e.target.value) } : item))
-                            )
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          className="input"
-                          style={{ width: '76px' }}
-                          value={r.maxCredits}
-                          onChange={e =>
-                            setRuleItems(prev =>
-                              prev.map((item, i) => (i === idx ? { ...item, maxCredits: Number(e.target.value) } : item))
-                            )
-                          }
-                        />
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="btn btn-danger btn-xs"
-                          onClick={() => setRuleItems(prev => prev.filter((_, i) => i !== idx))}
-                        >
-                          ×
-                        </button>
-                      </td>
+              {ruleItems.length === 0 ? (
+                <div className="p-8 text-center text-sm muted">
+                  No rules in the editor. Click <b>+ Add Rule</b> above to configure credit limits, then click <b>Publish New Rule Set</b>.
+                </div>
+              ) : (
+                <table className="table w-full text-xs">
+                  <thead>
+                    <tr>
+                      <th>Rule Type</th>
+                      <th>Rule Name</th>
+                      <th>Min CGPA (CgpaBand)</th>
+                      <th>Max CGPA Excl. (CgpaBand)</th>
+                      <th>Min Credits</th>
+                      <th>Max Credits</th>
+                      <th />
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {ruleItems.map((r, idx) => {
+                      const isBand = r.ruleType === 'CgpaBand';
+                      return (
+                        <tr key={idx}>
+                          <td>
+                            <select
+                              className="input"
+                              value={r.ruleType}
+                              onChange={e => {
+                                const nextType = e.target.value as CreditLoadRuleType;
+                                setRuleItems(prev =>
+                                  prev.map((item, i) =>
+                                    i === idx
+                                      ? {
+                                          ...item,
+                                          ruleType: nextType,
+                                          minCgpa: nextType === 'CgpaBand' ? item.minCgpa : null,
+                                          maxCgpaExclusive: nextType === 'CgpaBand' ? item.maxCgpaExclusive : null,
+                                        }
+                                      : item
+                                  )
+                                );
+                              }}
+                            >
+                              <option value="Summer">Summer</option>
+                              <option value="FirstRegularSemester">FirstRegularSemester</option>
+                              <option value="CgpaBand">CgpaBand</option>
+                            </select>
+                          </td>
+                          <td>
+                            <input
+                              className="input"
+                              placeholder="e.g. Good Standing"
+                              value={r.name ?? ''}
+                              onChange={e =>
+                                setRuleItems(prev => prev.map((item, i) => (i === idx ? { ...item, name: e.target.value } : item)))
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              step="0.01"
+                              className="input"
+                              style={{ width: '90px' }}
+                              disabled={!isBand}
+                              placeholder={isBand ? '0.00' : 'N/A'}
+                              value={isBand ? (r.minCgpa ?? '') : ''}
+                              onChange={e =>
+                                setRuleItems(prev =>
+                                  prev.map((item, i) =>
+                                    i === idx ? { ...item, minCgpa: e.target.value === '' ? null : Number(e.target.value) } : item
+                                  )
+                                )
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              step="0.01"
+                              className="input"
+                              style={{ width: '90px' }}
+                              disabled={!isBand}
+                              placeholder={isBand ? '4.01' : 'N/A'}
+                              value={isBand ? (r.maxCgpaExclusive ?? '') : ''}
+                              onChange={e =>
+                                setRuleItems(prev =>
+                                  prev.map((item, i) =>
+                                    i === idx ? { ...item, maxCgpaExclusive: e.target.value === '' ? null : Number(e.target.value) } : item
+                                  )
+                                )
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              step="0.5"
+                              className="input"
+                              style={{ width: '82px' }}
+                              placeholder="Optional"
+                              value={r.minCredits ?? ''}
+                              onChange={e =>
+                                setRuleItems(prev =>
+                                  prev.map((item, i) =>
+                                    i === idx ? { ...item, minCredits: e.target.value === '' ? null : Number(e.target.value) } : item
+                                  )
+                                )
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              step="0.5"
+                              className="input"
+                              style={{ width: '82px' }}
+                              value={r.maxCredits}
+                              onChange={e =>
+                                setRuleItems(prev =>
+                                  prev.map((item, i) => (i === idx ? { ...item, maxCredits: Number(e.target.value) } : item))
+                                )
+                              }
+                            />
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="btn btn-danger btn-xs"
+                              onClick={() => setRuleItems(prev => prev.filter((_, i) => i !== idx))}
+                            >
+                              ×
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
         </div>
@@ -866,8 +989,8 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
 
       {/* Policy Create / Edit Modal */}
       {policyModal && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal card card-pad" style={{ maxWidth: '720px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => !savingPolicy && setPolicyModal(null)}>
+          <div className="modal card card-pad" style={{ maxWidth: '720px' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold">
                 {policyModal === 'create' ? 'Create Policy Version' : 'Edit Policy Version'}
@@ -903,7 +1026,18 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
               </div>
 
               <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-                <div className="font-semibold text-sm mb-3">Policy Parameters</div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-semibold text-sm">Policy Parameters</span>
+                  {policyModal === 'create' && selectedPolicy && (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-xs"
+                      onClick={() => setPParams({ ...selectedPolicy.parameters })}
+                    >
+                      Copy Parameters From &ldquo;{selectedPolicy.name}&rdquo;
+                    </button>
+                  )}
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {PARAM_FIELDS.map(f => (
                     <div key={f.key}>
@@ -941,8 +1075,8 @@ export const AdminRegulations: React.FC<{ initialTab?: RegulationsTab }> = ({ in
 
       {/* Track Inspect Modal */}
       {inspectTrack && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal card card-pad" style={{ maxWidth: '480px', width: '100%' }}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => setInspectTrack(null)}>
+          <div className="modal card card-pad" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-bold">{inspectTrack.trackName || inspectTrack.track}</h3>
               <button type="button" className="icon-btn" onClick={() => setInspectTrack(null)}>

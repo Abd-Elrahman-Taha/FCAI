@@ -1,344 +1,186 @@
 /**
  * Screen 8: Student Dashboard Overview
- * 
- * BACKEND INTEGRATION POINT:
- * - Dedicated API: `studentApi.getDashboard()` in `src/api/student.api.ts`
- * - Endpoint: GET /student/dashboard (STUDENT_ENDPOINTS.DASHBOARD)
- * - Response DTO: `StudentDashboardResponse` (src/types/api/student.types.ts)
+ *
+ * 100% Live Backend Integration (Zero static/mock data):
+ * - GET /api/semesters/active (via ActiveSemesterCard)
+ * - GET /api/students/me
+ * - GET /api/students/me/level
+ * - GET /api/students/me/credit-load
  */
 
 import React, { useEffect, useState } from 'react';
-import { fakeApi } from '../../services/fakeApi';
-// When ready to connect dedicated API:
-// import { studentApi } from '../../api/student.api';
-// import type { StudentDashboardResponse } from '../../types/api';
+import { api } from '../../services/api';
+import type {
+  ResolvedCreditLoadDto,
+  StudentAcademicStandingDto,
+  StudentProfileResponseDto,
+} from '../../types/api';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';
-import { LiveCampusPulse } from '../../components/common/LiveCampusPulse';
-import { ScrollReveal } from '../../components/common/ScrollReveal';
-import { NeonRadialGauge } from '../../components/common/NeonRadialGauge';
-import { AnimatedCounter } from '../../components/common/AnimatedCounter';
 import { ActiveSemesterCard } from '../../components/common/ActiveSemesterCard';
 import { useAuth } from '../../context/AuthContext';
 
 export const StudentDashboard: React.FC = () => {
   const { currentUser } = useAuth();
-  const [data, setData] = useState<any>(null);
+  const [profile, setProfile] = useState<StudentProfileResponseDto | null>(null);
+  const [standing, setStanding] = useState<StudentAcademicStandingDto | null>(null);
+  const [creditLoad, setCreditLoad] = useState<ResolvedCreditLoadDto | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'schedule' | 'assignments' | 'alerts'>('schedule');
 
   useEffect(() => {
-    let mounted = true;
-    fakeApi.getStudentDashboard().then(res => {
-      if (mounted) {
-        setData(res);
-        setLoading(false);
-      }
-    });
-    return () => { mounted = false; };
+    let cancelled = false;
+    Promise.allSettled([
+      api.profile.student.getMe(),
+      api.profile.student.getLevel(),
+      api.profile.student.getCreditLoad(),
+    ])
+      .then(([p, lvl, cl]) => {
+        if (cancelled) return;
+        if (p.status === 'fulfilled') setProfile(p.value);
+        if (lvl.status === 'fulfilled') setStanding(lvl.value);
+        if (cl.status === 'fulfilled') setCreditLoad(cl.value);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  if (loading || !data) {
+  if (loading) {
     return (
-      <div>
-        <div className="skeleton mb-6" style={{ height: '140px', borderRadius: '20px' }} />
+      <div className="space-y-6">
+        <div className="skeleton" style={{ height: '140px', borderRadius: '20px' }} />
         <CardSkeleton count={4} />
       </div>
     );
   }
 
-  const { student, kpis, todaySchedule, pendingAssignments, attendanceAlerts } = data;
-
   return (
-    <div className="dashboard-container">
-      {/* 1. Modern Welcome Hero Banner with ScrollReveal */}
-      <ScrollReveal direction="up" delay={0.05}>
-        <div className="hero mb-6">
-          <div className="row-between wrap">
-            <div>
-              <div className="hero-chip mb-2">
-                <span className="dot-live" />
-                <Icon name="graduation" size="sm" /> Fall Semester 2026 · Week 4 Active
-              </div>
-              <h1 style={{ fontSize: '26px', fontWeight: 750, color: '#fff' }}>
-                Welcome back, {currentUser?.name || student.name}
-              </h1>
-              <div className="sub mt-2 row gap-2 wrap align-center" style={{ fontSize: '13px', color: '#c4dbf3' }}>
-                <span>Student ID: <b className="mono" style={{ color: '#fff' }}>{student.studentCode}</b></span>
-                <span>•</span>
-                <span>Department of {student.department}</span>
-                <span>•</span>
-                <span>{student.academicLevel}</span>
-                <span className="badge b-success no-dot" style={{ fontSize: '11px', padding: '2px 8px' }}>
-                  {student.academicStatus}
+    <div className="space-y-6">
+      <div className="hero">
+        <div className="row-between wrap">
+          <div>
+            <div className="hero-chip mb-2">
+              <Icon name="graduation" size="sm" /> FCAI BSU Student Portal
+            </div>
+            <h1 style={{ fontSize: '26px', fontWeight: 750, color: '#fff' }}>
+              Welcome back, {profile?.fullNameEn || currentUser?.name || 'Student'}
+            </h1>
+            <div className="sub mt-2 row gap-2 wrap align-center" style={{ fontSize: '13px', color: '#c4dbf3' }}>
+              {profile?.studentCode && (
+                <span>Student Code: <b className="mono" style={{ color: '#fff' }}>{profile.studentCode}</b></span>
+              )}
+              {profile?.departmentName && (
+                <>
+                  <span>•</span>
+                  <span>{profile.departmentName}</span>
+                </>
+              )}
+              {standing && (
+                <>
+                  <span>•</span>
+                  <span>Level {standing.level} ({standing.levelName})</span>
+                </>
+              )}
+              {profile?.academicStatus && (
+                <span className="chip chip-primary" style={{ fontSize: '11px' }}>
+                  {profile.academicStatus}
                 </span>
-              </div>
-            </div>
-            <div className="row gap-3 mt-3 wrap">
-              <a href="#/student/qr-attendance" className="btn btn-ice" style={{ boxShadow: '0 4px 14px rgba(193,232,255,0.4)' }}>
-                <Icon name="qr" /> Scan Attendance
-              </a>
-              <a href="#/student/registration" className="btn btn-hero-glass">
-                <Icon name="plusSquare" /> Course Registration
-              </a>
-            </div>
-          </div>
-        </div>
-      </ScrollReveal>
-
-      {/* 1.5 Live Active Semester & Operational Windows (GET /api/semesters/active) */}
-      <ScrollReveal direction="up" delay={0.08}>
-        <ActiveSemesterCard />
-      </ScrollReveal>
-
-      {/* 2. Live Academic Stream & Interactive Frequency Visualizer */}
-      <ScrollReveal direction="up" delay={0.1}>
-        <LiveCampusPulse role="student" />
-      </ScrollReveal>
-
-      {/* 3. Summarized High-Impact 4 KPIs with Sci-Fi Telemetry Gauges */}
-      <ScrollReveal direction="up" delay={0.15}>
-        <div className="grid g-4 mb-6">
-          {/* GPA Telemetry Gauge Card */}
-          <a href="#/student/academic" className="card kpi hover group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:hover:border-cyan-400/50 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="kpi-top mb-1">
-                  <span className="kpi-label">Cumulative GPA</span>
-                  <span className="kpi-ico info group-hover:scale-110 transition-transform"><Icon name="award" /></span>
-                </div>
-                <div className="kpi-value text-2xl font-bold flex items-baseline gap-1">
-                  <AnimatedCounter value={Number(student.gpa) || 3.42} decimals={2} />
-                  <span className="text-xs font-normal opacity-70">/ 4.00</span>
-                </div>
-                <div className="kpi-meta mt-1">
-                  <span className="text-cyan-600 dark:text-cyan-400 font-semibold">↑ +0.08</span> · <strong>Very Good</strong>
-                </div>
-              </div>
-              <div className="flex-shrink-0">
-                <NeonRadialGauge
-                  value={Number(student.gpa) || 3.42}
-                  max={4.0}
-                  size={76}
-                  strokeWidth={6}
-                  decimals={2}
-                  label="GPA"
-                  glowColor="cyan"
-                />
-              </div>
-            </div>
-          </a>
-
-          {/* Attendance Ring Card with 75% Threshold Alert */}
-          <a href="#/student/attendance" className="card kpi hover group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:hover:border-cyan-400/50 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="kpi-top mb-1">
-                  <span className="kpi-label">Overall Attendance</span>
-                  <span className="kpi-ico info group-hover:scale-110 transition-transform"><Icon name="userCheck" /></span>
-                </div>
-                <div className="kpi-value text-2xl font-bold flex items-baseline">
-                  <AnimatedCounter value={Number(kpis.attendance) || 92} suffix="%" />
-                </div>
-                <div className="kpi-meta mt-1 text-xs">
-                  <span className={Number(kpis.attendance) >= 75 ? "text-cyan-600 dark:text-cyan-400 font-medium" : "text-amber-500 font-bold"}>
-                    {Number(kpis.attendance) >= 75 ? 'Safe (>75% Policy)' : '⚠️ Warning (<75%)'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex-shrink-0">
-                <NeonRadialGauge
-                  value={Number(kpis.attendance) || 92}
-                  max={100}
-                  size={76}
-                  strokeWidth={6}
-                  warningThreshold={75}
-                  decimals={0}
-                  sublabel="%"
-                  label="RATE"
-                  glowColor="cyan"
-                />
-              </div>
-            </div>
-          </a>
-
-          {/* Enrolled Load Card */}
-          <a href="#/student/courses" className="card kpi hover group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:hover:border-cyan-400/50 p-4">
-            <div className="kpi-top">
-              <span className="kpi-label">Enrolled Load</span>
-              <span className="kpi-ico info group-hover:scale-110 transition-transform"><Icon name="book" /></span>
-            </div>
-            <div className="kpi-value text-2xl font-bold flex items-baseline gap-1">
-              <AnimatedCounter value={Number(kpis.coursesCount) || 5} />
-              <small className="text-xs font-normal opacity-70">Courses (17 CH)</small>
-            </div>
-            <div className="kpi-meta mt-1 text-xs text-slate-500 dark:text-slate-400">
-              <span>Next exam in 4 days (Algorithms)</span>
-            </div>
-          </a>
-
-          {/* Outstanding Tuition Card */}
-          <a href="#/student/fees" className="card kpi hover group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:hover:border-cyan-400/50 p-4" style={{ borderLeft: '3px solid #b45309' }}>
-            <div className="kpi-top">
-              <span className="kpi-label">Outstanding Tuition</span>
-              <span className="kpi-ico warning group-hover:scale-110 transition-transform"><Icon name="wallet" /></span>
-            </div>
-            <div className="kpi-value text-2xl font-bold" style={{ color: '#b45309' }}>
-              <AnimatedCounter value={7650} prefix="EGP " />
-            </div>
-            <div className="kpi-meta mt-1 text-xs" style={{ color: '#b45309' }}>
-              <span>Fawry Code Available &rarr;</span>
-            </div>
-          </a>
-        </div>
-      </ScrollReveal>
-
-      {/* 4. Streamlined Workspace with Clean Tabs */}
-      <ScrollReveal direction="up" delay={0.2}>
-        <div className="card mb-6">
-          {/* Tab Switcher */}
-          <div className="card-head" style={{ borderBottom: '1px solid var(--border)', padding: '12px 16px' }}>
-            <div className="row gap-2 scroll-x" style={{ overflowX: 'auto', maxWidth: '100%', WebkitOverflowScrolling: 'touch', paddingBottom: '2px' }}>
-              <button
-                className={`btn btn-sm ${activeTab === 'schedule' ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
-                onClick={() => setActiveTab('schedule')}
-              >
-                <Icon name="calendar" size="sm" /> Today's Schedule ({todaySchedule.length})
-              </button>
-              <button
-                className={`btn btn-sm ${activeTab === 'assignments' ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
-                onClick={() => setActiveTab('assignments')}
-              >
-                <Icon name="clipboard" size="sm" /> Active Assignments ({pendingAssignments.length})
-              </button>
-              <button
-                className={`btn btn-sm ${activeTab === 'alerts' ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
-                onClick={() => setActiveTab('alerts')}
-              >
-                <Icon name="alertCircle" size="sm" /> Academic Alerts ({attendanceAlerts.length})
-              </button>
-            </div>
-            <span className="sub text-xs hide-m">Sunday, October 14, 2026</span>
-          </div>
-
-          {/* Tab 1: Today's Schedule */}
-          {activeTab === 'schedule' && (
-            <div className="list">
-              {todaySchedule.map((s: any) => (
-                <div key={s.id} className="list-item" style={{ transition: 'background 0.2s ease' }}>
-                  <div className="date-chip">
-                    <small>{s.startTime}</small>
-                    <b>{s.endTime.split(':')[0]}</b>
-                  </div>
-                  <div className="li-main">
-                    <div className="row gap-2 wrap">
-                      <b style={{ fontSize: '14.5px' }}>{s.courseCode} · {s.courseName}</b>
-                      <span className="badge b-info">{s.sessionType}</span>
-                    </div>
-                    <span className="sub text-xs mt-1">Venue: {s.room} &nbsp;•&nbsp; Instructor: {s.instructor}</span>
-                  </div>
-                  <div className="row gap-2 wrap">
-                    <a href="#/student/qr-attendance" className="btn btn-sm btn-primary">
-                      <Icon name="qr" size="sm" /> Scan QR
-                    </a>
-                    <a href="#/student/timetable" className="btn btn-sm btn-secondary">
-                      View Room
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Tab 2: Pending Assignments */}
-          {activeTab === 'assignments' && (
-            <div className="list">
-              {pendingAssignments.map((a: any) => (
-                <div key={a.id} className="list-item">
-                  <div className="li-ico warning"><Icon name="clipboard" /></div>
-                  <div className="li-main">
-                    <b>{a.title}</b>
-                    <span>Course: {a.courseCode} &nbsp;•&nbsp; Deadline: <strong>{a.dueDate}</strong> &nbsp;•&nbsp; Total: {a.totalMarks} marks</span>
-                  </div>
-                  <div className="row gap-2 wrap">
-                    <span className="badge b-warning">Pending</span>
-                    <a href="#/student/assignments" className="btn btn-sm btn-primary">
-                      Submit File &rarr;
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Tab 3: Attendance & Academic Alerts */}
-          {activeTab === 'alerts' && (
-            <div className="card-body">
-              {attendanceAlerts.length > 0 ? (
-                <div className="col gap-3">
-                  {attendanceAlerts.map((alt: any, i: number) => (
-                    <div
-                      key={i}
-                      className="row-between p-3"
-                      style={{
-                        borderRadius: '12px',
-                        background: 'var(--danger-50)',
-                        border: '1px solid var(--danger-100)',
-                        color: 'var(--danger-700)'
-                      }}
-                    >
-                      <div className="row gap-3">
-                        <Icon name="alert" size="lg" />
-                        <div>
-                          <strong style={{ fontSize: '14px', display: 'block' }}>{alt.courseCode} — {alt.courseName}</strong>
-                          <span style={{ fontSize: '12.5px' }}>Attendance is currently at {alt.percent}%. Approaching statutory 75% deprivation threshold.</span>
-                        </div>
-                      </div>
-                      <a href="#/student/attendance" className="btn btn-sm btn-danger-soft">
-                        View Attendance Log
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="sub text-center py-4">No active academic alerts. All courses meet good standing criteria.</p>
               )}
             </div>
-          )}
+          </div>
+          <div className="row gap-2 mt-3 wrap">
+            <a href="#/student/courses" className="btn btn-ice">
+              <Icon name="book" /> Course Catalog
+            </a>
+            <a href="#/student/academic" className="btn btn-hero-glass">
+              <Icon name="graduation" /> Academic Standing
+            </a>
+            <a href="#/student/profile" className="btn btn-hero-glass">
+              <Icon name="user" /> My Profile
+            </a>
+          </div>
         </div>
-      </ScrollReveal>
+      </div>
 
-      {/* 5. Quick Services Row (Summarized cleanly at the bottom) */}
-      <ScrollReveal direction="up" delay={0.25}>
-        <div className="grid g-3">
-          <a href="#/student/study-assistant" className="card p-4 hover row gap-3">
-            <div className="li-ico info"><Icon name="sparkles" /></div>
-            <div>
-              <strong style={{ fontSize: '14px', display: 'block' }}>AI Study Assistant</strong>
-              <span className="sub text-xs">Curriculum question answering &amp; slides summaries</span>
-            </div>
-          </a>
+      <ActiveSemesterCard />
 
-          <a href="#/student/requests" className="card p-4 hover row gap-3">
-            <div className="li-ico success"><Icon name="inbox" /></div>
-            <div>
-              <strong style={{ fontSize: '14px', display: 'block' }}>Official Service Petitions</strong>
-              <span className="sub text-xs">Transcripts, enrollment proofs &amp; certificates</span>
-            </div>
-          </a>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <a href="#/student/academic" className="card kpi hover">
+          <div className="kpi-top">
+            <span className="kpi-label">Cumulative GPA</span>
+            <span className="kpi-ico info"><Icon name="award" /></span>
+          </div>
+          <div className="kpi-value">
+            {standing ? standing.cgpa.toFixed(2) : profile ? profile.cgpa.toFixed(2) : '—'}
+          </div>
+          <div className="kpi-meta">{profile?.academicStatus || 'Live Standing'}</div>
+        </a>
 
-          <a href="#/student/fees" className="card p-4 hover row gap-3">
-            <div className="li-ico warning"><Icon name="receipt" /></div>
-            <div>
-              <strong style={{ fontSize: '14px', display: 'block' }}>Fawry Pay-Code &amp; Receipts</strong>
-              <span className="sub text-xs">Tuition statements &amp; electronic payment validation</span>
-            </div>
-          </a>
+        <a href="#/student/academic" className="card kpi hover">
+          <div className="kpi-top">
+            <span className="kpi-label">Academic Level</span>
+            <span className="kpi-ico primary"><Icon name="layers" /></span>
+          </div>
+          <div className="kpi-value">{standing ? `Level ${standing.level}` : '—'}</div>
+          <div className="kpi-meta">
+            {standing ? `${standing.earnedHours} / ${standing.totalRequiredCredits} cr (${standing.percentage.toFixed(1)}%)` : `${profile?.passedCredits ?? 0} passed cr`}
+          </div>
+        </a>
+
+        <a href="#/student/academic" className="card kpi hover">
+          <div className="kpi-top">
+            <span className="kpi-label">Allowed Credit Load</span>
+            <span className="kpi-ico info"><Icon name="sliders" /></span>
+          </div>
+          <div className="kpi-value">
+            {creditLoad ? `${creditLoad.minCredits ?? 0}–${creditLoad.maxCredits} cr` : '—'}
+          </div>
+          <div className="kpi-meta">
+            {creditLoad ? `${creditLoad.registeredCredits} registered · ${creditLoad.remainingCredits} remaining` : 'No active semester load'}
+          </div>
+        </a>
+
+        <a href="#/student/profile" className="card kpi hover">
+          <div className="kpi-top">
+            <span className="kpi-label">Academic Advisor</span>
+            <span className="kpi-ico primary"><Icon name="user" /></span>
+          </div>
+          <div className="kpi-value" style={{ fontSize: '18px' }}>
+            {profile?.academicAdvisorName || 'Unassigned'}
+          </div>
+          <div className="kpi-meta">
+            Warnings: {profile ? `${profile.totalWarningsCount} total` : '—'}
+          </div>
+        </a>
+      </div>
+
+      {standing && (standing.groups ?? []).length > 0 && (
+        <div className="card card-pad space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-base">Degree Requirement Progress</h3>
+            <a href="#/student/academic" className="btn btn-outline btn-xs">View Full Breakdown</a>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {(standing.groups ?? []).map((g, idx) => {
+              const pct = g.requiredHours > 0 ? Math.min(100, (g.earnedHours / g.requiredHours) * 100) : 0;
+              return (
+                <div key={idx} className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <b>{g.groupCode} · {g.groupName}</b>
+                    <span className="font-mono">{g.earnedHours} / {g.requiredHours} cr</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                    <div className="h-full bg-[#38bdf8]" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </ScrollReveal>
+      )}
     </div>
   );
 };

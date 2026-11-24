@@ -53,8 +53,8 @@ export const AdminDoctors: React.FC = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const [title, setTitle] = useState('');
-  const [hireDate, setHireDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [maxProjects, setMaxProjects] = useState(5);
+  const [hireDate, setHireDate] = useState('');
+  const [maxProjects, setMaxProjects] = useState(0);
   const [tempPassword, setTempPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -122,9 +122,9 @@ export const AdminDoctors: React.FC = () => {
     setEmail('');
     setPhoneNumber('');
     setDepartmentId(departments[0] ? String(departments[0].id) : '');
-    setTitle('Assistant Professor');
-    setHireDate(new Date().toISOString().slice(0, 10));
-    setMaxProjects(5);
+    setTitle('');
+    setHireDate('');
+    setMaxProjects(0);
     setTempPassword('');
     setFormError(null);
   };

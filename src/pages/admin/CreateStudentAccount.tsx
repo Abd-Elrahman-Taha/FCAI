@@ -37,18 +37,18 @@ export const CreateStudentAccount: React.FC = () => {
   const [fullNameEn, setFullNameEn] = useState('');
   const [fullNameAr, setFullNameAr] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
-  const [gender, setGender] = useState('Male');
-  const [nationality, setNationality] = useState('Egyptian');
+  const [gender, setGender] = useState('');
+  const [nationality, setNationality] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
-  const [governorate, setGovernorate] = useState('Beni Suef');
+  const [governorate, setGovernorate] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const [secondaryTrack, setSecondaryTrack] = useState<SecondaryTrack>('Math');
-  const [secondaryCertificateYear, setSecondaryCertificateYear] = useState(new Date().getFullYear());
+  const [secondaryCertificateYear, setSecondaryCertificateYear] = useState<string>('');
   const [seatNumber, setSeatNumber] = useState('');
-  const [secondaryScore, setSecondaryScore] = useState(380);
-  const [admissionYear, setAdmissionYear] = useState(new Date().getFullYear());
+  const [secondaryScore, setSecondaryScore] = useState<string>('');
+  const [admissionYear, setAdmissionYear] = useState<string>('');
   const [curriculumVersionId, setCurriculumVersionId] = useState('');
   const [advisorDoctorId, setAdvisorDoctorId] = useState('');
   const [temporaryPassword, setTemporaryPassword] = useState('');
@@ -56,7 +56,7 @@ export const CreateStudentAccount: React.FC = () => {
   // Transferred student extra fields
   const [previousInstitution, setPreviousInstitution] = useState('');
   const [previousFacultyName, setPreviousFacultyName] = useState('');
-  const [cgpa, setCgpa] = useState(3.0);
+  const [cgpa, setCgpa] = useState<string>('');
   const [completedCourseIds, setCompletedCourseIds] = useState<number[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
@@ -226,6 +226,7 @@ export const CreateStudentAccount: React.FC = () => {
           <div>
             <label className="label">Gender</label>
             <select className="input" value={gender} onChange={e => setGender(e.target.value)}>
+              <option value="">Select gender...</option>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
             </select>
@@ -248,10 +249,10 @@ export const CreateStudentAccount: React.FC = () => {
               <option value="Science">Science</option>
             </select>
           </div>
-          <div><label className="label">Secondary Certificate Year</label><input type="number" className="input" value={secondaryCertificateYear} onChange={e => setSecondaryCertificateYear(Number(e.target.value))} required /></div>
+          <div><label className="label">Secondary Certificate Year</label><input type="number" className="input" value={secondaryCertificateYear} onChange={e => setSecondaryCertificateYear(e.target.value)} required /></div>
           <div><label className="label">Seat Number</label><input className="input" value={seatNumber} onChange={e => setSeatNumber(e.target.value)} /></div>
-          <div><label className="label">Secondary Score</label><input type="number" step="0.5" className="input" value={secondaryScore} onChange={e => setSecondaryScore(Number(e.target.value))} required /></div>
-          <div><label className="label">Admission Year</label><input type="number" className="input" value={admissionYear} onChange={e => setAdmissionYear(Number(e.target.value))} required /></div>
+          <div><label className="label">Secondary Score</label><input type="number" step="0.5" className="input" value={secondaryScore} onChange={e => setSecondaryScore(e.target.value)} required /></div>
+          <div><label className="label">Admission Year</label><input type="number" className="input" value={admissionYear} onChange={e => setAdmissionYear(e.target.value)} required /></div>
 
           <div>
             <label className="label">Curriculum Version {mode === 'transferred' ? '(Required)' : '(Optional)'}</label>
@@ -276,7 +277,7 @@ export const CreateStudentAccount: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div><label className="label">Previous Institution</label><input className="input" value={previousInstitution} onChange={e => setPreviousInstitution(e.target.value)} required /></div>
               <div><label className="label">Previous Faculty</label><input className="input" value={previousFacultyName} onChange={e => setPreviousFacultyName(e.target.value)} required /></div>
-              <div><label className="label">Transferred CGPA</label><input type="number" step="0.01" className="input" value={cgpa} onChange={e => setCgpa(Number(e.target.value))} required /></div>
+              <div><label className="label">Transferred CGPA</label><input type="number" step="0.01" className="input" value={cgpa} onChange={e => setCgpa(e.target.value)} required /></div>
             </div>
             <div>
               <label className="label">Completed Equivalent Courses ({completedCourseIds.length} selected)</label>

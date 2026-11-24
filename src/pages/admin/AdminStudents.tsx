@@ -64,9 +64,9 @@ export const AdminStudents: React.FC = () => {
   const [eTrack, setETrack] = useState<SecondaryTrack>('Math');
   const [eStatus, setEStatus] = useState<AcademicStatus>('Active');
   const [eCurrId, setECurrId] = useState('');
-  const [eScore, setEScore] = useState(380);
-  const [eAdmissionYear, setEAdmissionYear] = useState(2025);
-  const [eCertYear, setECertYear] = useState(2025);
+  const [eScore, setEScore] = useState(0);
+  const [eAdmissionYear, setEAdmissionYear] = useState(0);
+  const [eCertYear, setECertYear] = useState(0);
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Transfer Department Modal
@@ -85,7 +85,7 @@ export const AdminStudents: React.FC = () => {
   const [overrideTarget, setOverrideTarget] = useState<StudentListItemDto | null>(null);
   const [ovSemesterId, setOvSemesterId] = useState('');
   const [ovMinCredits, setOvMinCredits] = useState('');
-  const [ovMaxCredits, setOvMaxCredits] = useState('21');
+  const [ovMaxCredits, setOvMaxCredits] = useState('');
   const [ovReason, setOvReason] = useState('');
 
   // Transfer Credits Modal
@@ -122,7 +122,17 @@ export const AdminStudents: React.FC = () => {
       api.people.students.list({ PageIndex: 1, PageSize: 15 }),
       api.departments.getLookup().catch(() => [] as DepartmentLookupDto[]),
       api.curriculum.listVersions().catch(() => [] as CurriculumVersionListItemDto[]),
-      api.semesters.getAll().catch(() => [] as SemesterDto[]),
+      api.academicYears
+        .getAll()
+        .then(async yrs => {
+          const allSems = await Promise.allSettled(yrs.map(y => api.semesters.getAll(y.id)));
+          const merged: SemesterDto[] = [];
+          for (const r of allSems) {
+            if (r.status === 'fulfilled') merged.push(...r.value);
+          }
+          return merged;
+        })
+        .catch(() => [] as SemesterDto[]),
       api.courses.adminSearch({ Page: 1, PageSize: 200 }).catch(() => ({ items: [] as CourseListItemDto[] })),
     ])
       .then(([stuRes, deptList, currList, semList, crsRes]) => {
@@ -482,7 +492,7 @@ export const AdminStudents: React.FC = () => {
                           setOverrideTarget(s);
                           setOvSemesterId(semesters.find(x => x.isActive)?.id ? String(semesters.find(x => x.isActive)?.id) : semesters[0] ? String(semesters[0].id) : '');
                           setOvMinCredits('');
-                          setOvMaxCredits('21');
+                          setOvMaxCredits('');
                           setOvReason('');
                         }}
                       >

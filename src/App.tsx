@@ -487,8 +487,8 @@ const RouterView: React.FC = () => {
     if (cleanPath === 'screen/82' || cleanPath === 'admin/service-requests' || cleanPath === 'admin/requests') return <AdminServiceRequests />;
     if (cleanPath === 'screen/83' || cleanPath === 'admin/payment-monitoring' || cleanPath === 'admin/payments') return <AdminPaymentMonitoring />;
     if (cleanPath === 'screen/84' || cleanPath === 'admin/reports') return <AdminReports />;
-    if (cleanPath === 'screen/85' || cleanPath === 'admin/regulations') return <AdminRegulations />;
-    if (cleanPath === 'admin/credit-load') return <AdminRegulations initialTab="credit-load" />;
+    if (cleanPath === 'screen/85' || cleanPath === 'admin/regulations') return <AdminRegulations key="regulations" initialTab="policies" />;
+    if (cleanPath === 'admin/credit-load') return <AdminRegulations key="credit-load" initialTab="credit-load" />;
     if (cleanPath === 'screen/86' || cleanPath === 'admin/academic-years' || cleanPath === 'admin/academic-structure') return <AdminAcademicYears />;
     if (cleanPath === 'screen/87' || cleanPath === 'admin/levels') return <AdminLevels />;
     if (cleanPath === 'screen/88' || cleanPath === 'admin/courses') return <AdminCourses />;

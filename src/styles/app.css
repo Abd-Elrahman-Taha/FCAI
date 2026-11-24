@@ -3936,5 +3936,116 @@ svg.icon ellipse {
   stroke: #ffffff !important;
 }
 
+/* =========================================================
+   Global Modals (Top-Aligned Fixed Overlay), Native Selects,
+   and Utility Buttons/Chips for Both Light & Dark Modes
+   ========================================================= */
+html[data-theme="dark"],
+html.dark {
+  color-scheme: dark;
+}
+html:not([data-theme="dark"]):not(.dark) {
+  color-scheme: light;
+}
+
+.overlay,
+.modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1200 !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  padding: 28px 16px 40px !important;
+  overflow-y: auto !important;
+  background: rgba(2, 16, 36, 0.65) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  animation: fade var(--t) var(--ease);
+}
+
+.modal-backdrop > .modal,
+.overlay > .modal {
+  position: relative !important;
+  margin: 0 auto !important;
+  max-height: calc(100vh - 56px) !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100%;
+}
+
+/* Ensure native <select> and <option> dropdowns are always readable */
+select,
+select.input,
+select.select {
+  background-color: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+select option,
+select optgroup {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+[data-theme="dark"] select,
+.dark select,
+[data-theme="dark"] select.input,
+.dark select.input,
+[data-theme="dark"] select.select,
+.dark select.select {
+  background-color: #071936 !important;
+  color: #f8fafc !important;
+  border-color: rgba(56, 189, 248, 0.35) !important;
+}
+[data-theme="dark"] select option,
+.dark select option,
+[data-theme="dark"] select optgroup,
+.dark select optgroup {
+  background-color: #071936 !important;
+  color: #f8fafc !important;
+}
+
+/* Crisp button & badge utilities used across connected pages */
+.btn-xs {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+.btn-outline:hover {
+  background: var(--surface-2);
+  border-color: var(--blue-400);
+}
+[data-theme="dark"] .btn-outline,
+.dark .btn-outline {
+  background: rgba(15, 35, 70, 0.55);
+  color: #e2e8f0;
+  border-color: rgba(56, 189, 248, 0.35);
+}
+[data-theme="dark"] .btn-outline:hover,
+.dark .btn-outline:hover {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+.chip-danger {
+  background: var(--danger-50, #fef2f2);
+  color: var(--danger-700, #b91c1c);
+  border-color: var(--danger-100, #fee2e2);
+}
+[data-theme="dark"] .chip-danger,
+.dark .chip-danger {
+  background: rgba(239, 68, 68, 0.18) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+
 
 

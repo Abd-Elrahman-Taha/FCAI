@@ -52,9 +52,9 @@ export const AdminTeachingAssistants: React.FC = () => {
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [departmentId, setDepartmentId] = useState('');
-  const [academicDegree, setAcademicDegree] = useState('M.Sc.');
-  const [hireDate, setHireDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [maxProjects, setMaxProjects] = useState(3);
+  const [academicDegree, setAcademicDegree] = useState('');
+  const [hireDate, setHireDate] = useState('');
+  const [maxProjects, setMaxProjects] = useState(0);
   const [tempPassword, setTempPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -119,9 +119,9 @@ export const AdminTeachingAssistants: React.FC = () => {
     setEmail('');
     setPhoneNumber('');
     setDepartmentId(departments[0] ? String(departments[0].id) : '');
-    setAcademicDegree('M.Sc.');
-    setHireDate(new Date().toISOString().slice(0, 10));
-    setMaxProjects(3);
+    setAcademicDegree('');
+    setHireDate('');
+    setMaxProjects(0);
     setTempPassword('');
     setFormError(null);
   };

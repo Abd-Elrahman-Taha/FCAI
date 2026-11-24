@@ -1,7 +1,8 @@
 /**
  * Screen 91 / Semesters & Operational Windows Management (Admin)
  *
- * Connected strictly to all 10 confirmed Swagger AdminSemesters endpoints:
+ * Connected strictly to all 10 confirmed Swagger AdminSemesters endpoints
+ * + live GET /api/admin/academic-years:
  * - GET  /api/admin/semesters?yearId=
  * - POST /api/admin/semesters
  * - GET  /api/admin/semesters/{id}
@@ -31,6 +32,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useAcademic } from '../../context/AcademicContext';
 
 type WindowKey = 'registration' | 'drop' | 'withdrawal' | 'preference';
+
+const SEMESTER_TYPES: SemesterType[] = ['Fall', 'Spring', 'Summer'];
 
 const WINDOW_LABELS: Record<WindowKey, string> = {
   registration: 'Registration Window',
@@ -64,6 +67,7 @@ export const AdminRegistrationPeriods: React.FC = () => {
   const { refreshActiveSemester } = useAcademic();
 
   const [years, setYears] = useState<AcademicYear[]>([]);
+  const [yearsError, setYearsError] = useState<string | null>(null);
   const [selectedYearId, setSelectedYearId] = useState<string>('');
   const [semesters, setSemesters] = useState<SemesterDto[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -102,35 +106,77 @@ export const AdminRegistrationPeriods: React.FC = () => {
   const [calculating, setCalculating] = useState<boolean>(false);
   const [calcResult, setCalcResult] = useState<CalculateLevelsResultDto | null>(null);
 
-  const loadSemesters = useCallback(async (yearIdFilter?: string) => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const yId = yearIdFilter ? Number(yearIdFilter) : undefined;
-      const list = await api.semesters.getAll(Number.isFinite(yId) ? yId : undefined);
-      setSemesters(list);
-    } catch (err: unknown) {
-      setLoadError(err instanceof Error ? err.message : 'Failed to load semesters.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchSemestersForSelection = useCallback(
+    async (yearSelection: string, availableYears: AcademicYear[]) => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        if (yearSelection && yearSelection !== 'ALL') {
+          const yId = Number(yearSelection);
+          const list = await api.semesters.getAll(yId);
+          setSemesters(list);
+        } else if (availableYears.length > 0) {
+          // Fetch live semesters for every academic year via GET /api/admin/semesters?yearId={id}
+          const results = await Promise.allSettled(
+            availableYears.map(y => api.semesters.getAll(y.id))
+          );
+          const merged: SemesterDto[] = [];
+          for (const r of results) {
+            if (r.status === 'fulfilled') merged.push(...r.value);
+          }
+          setSemesters(merged);
+        } else {
+          setSemesters([]);
+        }
+      } catch (err: unknown) {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load semesters.');
+        setSemesters([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
+  // Step 1: Independently fetch live Academic Years, then fetch Semesters for the active/first year
   useEffect(() => {
     let cancelled = false;
-    Promise.all([api.academicYears.getAll(), api.semesters.getAll()])
-      .then(([yrList, semList]) => {
+    api.academicYears
+      .getAll()
+      .then(async yrList => {
         if (cancelled) return;
         setYears(yrList);
-        setSemesters(semList);
-        setLoadError(null);
+        setYearsError(null);
+        const defaultYear = yrList.find(y => y.isActive) ?? yrList[0];
+        if (!defaultYear) {
+          setSelectedYearId('');
+          setSemesters([]);
+          setLoading(false);
+          return;
+        }
+        const defaultIdStr = String(defaultYear.id);
+        setSelectedYearId(defaultIdStr);
+        try {
+          const semList = await api.semesters.getAll(defaultYear.id);
+          if (!cancelled) {
+            setSemesters(semList);
+            setLoadError(null);
+          }
+        } catch (err: unknown) {
+          if (!cancelled) {
+            setLoadError(err instanceof Error ? err.message : 'Failed to load semesters.');
+            setSemesters([]);
+          }
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setLoadError(err instanceof Error ? err.message : 'Failed to load semesters.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        const msg = err instanceof Error ? err.message : 'Failed to load academic years.';
+        setYearsError(msg);
+        setLoadError(msg);
+        setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -139,13 +185,45 @@ export const AdminRegistrationPeriods: React.FC = () => {
 
   const handleYearFilterChange = (val: string) => {
     setSelectedYearId(val);
-    void loadSemesters(val);
+    void fetchSemestersForSelection(val, years);
+  };
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    setLoadError(null);
+    setYearsError(null);
+    try {
+      const yrList = await api.academicYears.getAll();
+      setYears(yrList);
+      const nextSelection =
+        selectedYearId && (selectedYearId === 'ALL' || yrList.some(y => String(y.id) === selectedYearId))
+          ? selectedYearId
+          : yrList.find(y => y.isActive)?.id
+          ? String(yrList.find(y => y.isActive)!.id)
+          : yrList[0]
+          ? String(yrList[0].id)
+          : '';
+      setSelectedYearId(nextSelection);
+      await fetchSemestersForSelection(nextSelection, yrList);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to refresh academic years.';
+      setYearsError(msg);
+      setLoadError(msg);
+      setLoading(false);
+    }
   };
 
   const openCreateModal = () => {
     setModalMode('create');
     setEditingId(null);
-    const defaultYear = selectedYearId || (years[0]?.id ? String(years[0].id) : '');
+    const defaultYear =
+      selectedYearId && selectedYearId !== 'ALL'
+        ? selectedYearId
+        : years.find(y => y.isActive)?.id
+        ? String(years.find(y => y.isActive)!.id)
+        : years[0]?.id
+        ? String(years[0].id)
+        : '';
     setAcademicYearId(defaultYear);
     setName('');
     setSemesterType('Fall');
@@ -215,6 +293,10 @@ export const AdminRegistrationPeriods: React.FC = () => {
           endDate,
         });
         showToast('Semester Created', res.message, 'success');
+        const nextSelection = selectedYearId === 'ALL' ? 'ALL' : academicYearId;
+        setSelectedYearId(nextSelection);
+        setModalMode(null);
+        await fetchSemestersForSelection(nextSelection, years);
       } else if (modalMode === 'edit' && editingId !== null) {
         const res = await api.semesters.update(editingId, {
           name: name.trim(),
@@ -222,9 +304,9 @@ export const AdminRegistrationPeriods: React.FC = () => {
           endDate,
         });
         showToast('Semester Updated', res.message, 'success');
+        setModalMode(null);
+        await fetchSemestersForSelection(selectedYearId, years);
       }
-      setModalMode(null);
-      await loadSemesters(selectedYearId);
       await refreshActiveSemester();
     } catch (err: unknown) {
       if (err instanceof ApiError) {
@@ -243,7 +325,7 @@ export const AdminRegistrationPeriods: React.FC = () => {
     try {
       const res = await api.semesters.activate(sem.id);
       showToast('Semester Activated', res.message, 'success');
-      await loadSemesters(selectedYearId);
+      await fetchSemestersForSelection(selectedYearId, years);
       await refreshActiveSemester();
     } catch (err: unknown) {
       showToast('Activation Failed', err instanceof Error ? err.message : 'Could not activate semester.', 'error');
@@ -276,7 +358,7 @@ export const AdminRegistrationPeriods: React.FC = () => {
         const res = await api.semesters.setDropWindow(semester.id, { dropEnd: toIsoUtc(windowEnd) });
         showToast('Drop Window Updated', res.message, 'success');
         setWindowModal(null);
-        await loadSemesters(selectedYearId);
+        await fetchSemestersForSelection(selectedYearId, years);
         await refreshActiveSemester();
       } catch (err: unknown) {
         setWindowError(err instanceof Error ? err.message : 'Failed to update drop window.');
@@ -308,7 +390,7 @@ export const AdminRegistrationPeriods: React.FC = () => {
           : await api.semesters.setPreferenceWindow(semester.id, payload);
       showToast('Window Updated', res.message, 'success');
       setWindowModal(null);
-      await loadSemesters(selectedYearId);
+      await fetchSemestersForSelection(selectedYearId, years);
       await refreshActiveSemester();
     } catch (err: unknown) {
       setWindowError(err instanceof Error ? err.message : 'Failed to update operational window.');
@@ -353,8 +435,8 @@ export const AdminRegistrationPeriods: React.FC = () => {
         </span>
         <button
           type="button"
-          className="btn btn-ghost btn-xs"
-          style={{ width: 'fit-content', padding: '2px 6px' }}
+          className="btn btn-outline btn-xs"
+          style={{ width: 'fit-content', height: '24px', padding: '0 8px', fontSize: '11px' }}
           onClick={() => openWindowModal(sem, key)}
         >
           Configure
@@ -362,6 +444,8 @@ export const AdminRegistrationPeriods: React.FC = () => {
       </div>
     );
   };
+
+  const selectedYearObj = years.find(y => String(y.id) === academicYearId);
 
   return (
     <div className="space-y-6">
@@ -372,24 +456,30 @@ export const AdminRegistrationPeriods: React.FC = () => {
           { label: 'Semesters & Operational Windows' },
         ]}
         title="Semesters & Operational Windows"
-        subtitle="Create and activate semesters, configure registration/drop/withdrawal/preference windows, and calculate student academic levels."
+        subtitle="Manage semesters per academic year, activate the current semester, configure operational windows, and run level calculations."
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             <select
               className="input"
-              style={{ width: 'auto', minWidth: '190px' }}
+              style={{ width: 'auto', minWidth: '220px' }}
               value={selectedYearId}
               onChange={e => handleYearFilterChange(e.target.value)}
               aria-label="Filter by academic year"
             >
-              <option value="">All Academic Years</option>
-              {years.map(y => (
-                <option key={y.id} value={String(y.id)}>
-                  {y.name} {y.isActive ? '(Active)' : ''}
-                </option>
-              ))}
+              {years.length === 0 ? (
+                <option value="">No academic years loaded</option>
+              ) : (
+                <>
+                  <option value="ALL">All Academic Years ({years.length})</option>
+                  {years.map(y => (
+                    <option key={y.id} value={String(y.id)}>
+                      {y.name} ({y.startDate} → {y.endDate}){y.isActive ? ' · Active' : ''}
+                    </option>
+                  ))}
+                </>
+              )}
             </select>
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => void loadSemesters(selectedYearId)}>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => void handleRefresh()}>
               <Icon name="refresh" size="sm" /> Refresh
             </button>
             <button type="button" className="btn btn-primary btn-sm" onClick={openCreateModal}>
@@ -401,7 +491,27 @@ export const AdminRegistrationPeriods: React.FC = () => {
 
       <ActiveSemesterCard />
 
-      {loading ? (
+      {yearsError && (
+        <div className="alert alert-danger text-sm">
+          <Icon name="alert" size="sm" />
+          <span>Could not load academic years: {yearsError}</span>
+        </div>
+      )}
+
+      {!loading && years.length === 0 && !yearsError ? (
+        <div className="card card-pad state">
+          <div className="state-art">
+            <Icon name="calendar" size="lg" />
+          </div>
+          <h3>No Academic Years Exist Yet</h3>
+          <p className="text-sm muted">
+            Semesters belong to an Academic Year. Create an Academic Year first, then return here to add Fall, Spring, or Summer semesters.
+          </p>
+          <a href="#/admin/academic-years" className="btn btn-primary btn-sm mt-3">
+            Go to Academic Years
+          </a>
+        </div>
+      ) : loading ? (
         <CardSkeleton />
       ) : loadError ? (
         <div className="card card-pad state">
@@ -410,7 +520,7 @@ export const AdminRegistrationPeriods: React.FC = () => {
           </div>
           <h3>Could not load semesters</h3>
           <p className="text-sm muted">{loadError}</p>
-          <button type="button" className="btn btn-primary btn-sm mt-3" onClick={() => void loadSemesters(selectedYearId)}>
+          <button type="button" className="btn btn-primary btn-sm mt-3" onClick={() => void handleRefresh()}>
             Retry
           </button>
         </div>
@@ -420,7 +530,9 @@ export const AdminRegistrationPeriods: React.FC = () => {
             <Icon name="calendarCheck" size="lg" />
           </div>
           <h3>No Semesters Found</h3>
-          <p className="text-sm muted">Create a semester under an academic year to manage registration and academic windows.</p>
+          <p className="text-sm muted">
+            No semesters have been created for the selected academic year yet.
+          </p>
           <button type="button" className="btn btn-primary btn-sm mt-3" onClick={openCreateModal}>
             <Icon name="plus" size="sm" /> Create Semester
           </button>
@@ -508,10 +620,10 @@ export const AdminRegistrationPeriods: React.FC = () => {
         </div>
       )}
 
-      {/* Create / Edit Semester Modal */}
+      {/* Create / Edit Semester Modal (Top-Aligned Fixed Overlay) */}
       {modalMode && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal card card-pad" style={{ maxWidth: '520px', width: '100%' }}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => !submitting && setModalMode(null)}>
+          <div className="modal card card-pad" style={{ maxWidth: '540px' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold">
                 {modalMode === 'create' ? 'Create Semester' : 'Edit Semester'}
@@ -533,19 +645,41 @@ export const AdminRegistrationPeriods: React.FC = () => {
                 <>
                   <div>
                     <label className="label">Academic Year</label>
-                    <select
-                      className="input"
-                      value={academicYearId}
-                      onChange={e => setAcademicYearId(e.target.value)}
-                      required
-                    >
-                      <option value="">Select Academic Year...</option>
-                      {years.map(y => (
-                        <option key={y.id} value={String(y.id)}>
-                          {y.name} ({y.startDate} → {y.endDate})
-                        </option>
-                      ))}
-                    </select>
+                    {years.length === 0 ? (
+                      <div className="alert alert-warning text-xs mt-1">
+                        <span>
+                          No academic years exist yet.{' '}
+                          <a href="#/admin/academic-years" className="underline font-bold">
+                            Create an Academic Year first
+                          </a>
+                          .
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <select
+                          className="input"
+                          value={academicYearId}
+                          onChange={e => setAcademicYearId(e.target.value)}
+                          required
+                        >
+                          <option value="">Select Academic Year...</option>
+                          {years.map(y => (
+                            <option key={y.id} value={String(y.id)}>
+                              {y.name} ({y.startDate} → {y.endDate}){y.isActive ? ' · Active' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {selectedYearObj && (
+                          <p className="text-xs muted mt-1">
+                            Dates must fall within {selectedYearObj.startDate} → {selectedYearObj.endDate}.
+                          </p>
+                        )}
+                      </>
+                    )}
+                    {formApiError?.getFieldErrors('academicYearId').map((msg, i) => (
+                      <p key={i} className="text-xs text-red-500 mt-1">{msg}</p>
+                    ))}
                   </div>
 
                   <div>
@@ -554,11 +688,17 @@ export const AdminRegistrationPeriods: React.FC = () => {
                       className="input"
                       value={semesterType}
                       onChange={e => setSemesterType(e.target.value as SemesterType)}
+                      required
                     >
-                      <option value="Fall">Fall</option>
-                      <option value="Spring">Spring</option>
-                      <option value="Summer">Summer</option>
+                      {SEMESTER_TYPES.map(t => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
                     </select>
+                    {formApiError?.getFieldErrors('semesterType').map((msg, i) => (
+                      <p key={i} className="text-xs text-red-500 mt-1">{msg}</p>
+                    ))}
                   </div>
                 </>
               )}
@@ -587,6 +727,9 @@ export const AdminRegistrationPeriods: React.FC = () => {
                     onChange={e => setStartDate(e.target.value)}
                     required
                   />
+                  {formApiError?.getFieldErrors('startDate').map((msg, i) => (
+                    <p key={i} className="text-xs text-red-500 mt-1">{msg}</p>
+                  ))}
                 </div>
                 <div>
                   <label className="label">End Date</label>
@@ -597,6 +740,9 @@ export const AdminRegistrationPeriods: React.FC = () => {
                     onChange={e => setEndDate(e.target.value)}
                     required
                   />
+                  {formApiError?.getFieldErrors('endDate').map((msg, i) => (
+                    <p key={i} className="text-xs text-red-500 mt-1">{msg}</p>
+                  ))}
                 </div>
               </div>
 
@@ -604,7 +750,11 @@ export const AdminRegistrationPeriods: React.FC = () => {
                 <button type="button" className="btn btn-outline" onClick={() => setModalMode(null)} disabled={submitting}>
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submitting || (modalMode === 'create' && years.length === 0)}
+                >
                   {submitting ? 'Saving...' : modalMode === 'create' ? 'Create Semester' : 'Save Changes'}
                 </button>
               </div>
@@ -615,8 +765,8 @@ export const AdminRegistrationPeriods: React.FC = () => {
 
       {/* Window Configuration Modal */}
       {windowModal && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal card card-pad" style={{ maxWidth: '480px', width: '100%' }}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => !savingWindow && setWindowModal(null)}>
+          <div className="modal card card-pad" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-lg font-bold">{WINDOW_LABELS[windowModal.key]}</h3>
@@ -675,8 +825,8 @@ export const AdminRegistrationPeriods: React.FC = () => {
 
       {/* Calculate Levels Modal */}
       {calcModalSemester && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal card card-pad" style={{ maxWidth: '520px', width: '100%' }}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => !calculating && setCalcModalSemester(null)}>
+          <div className="modal card card-pad" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-lg font-bold">Calculate Student Levels</h3>
@@ -745,8 +895,8 @@ export const AdminRegistrationPeriods: React.FC = () => {
 
       {/* Semester Details Modal */}
       {detailSemester && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal card card-pad" style={{ maxWidth: '560px', width: '100%' }}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => setDetailSemester(null)}>
+          <div className="modal card card-pad" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-lg font-bold">{detailSemester.name}</h3>

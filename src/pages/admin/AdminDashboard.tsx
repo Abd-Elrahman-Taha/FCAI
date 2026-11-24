@@ -1,52 +1,88 @@
 /**
  * Screen 73: College Administration Dashboard
- * 
- * BACKEND INTEGRATION POINT:
- * - Module: `adminApi.getDashboard()` in `src/api/admin.api.ts`
- * - Endpoint: GET /admin/dashboard (ADMIN_ENDPOINTS.DASHBOARD)
- * - Approve Grades: `adminApi.approveGradePackage(packageId)` (POST /admin/grade-packages/:id/approve)
- * - Response DTO: `AdminDashboardResponse` (src/types/api/admin.types.ts)
+ *
+ * 100% Live Backend Integration (Zero static/mock data):
+ * - GET /api/semesters/active (via ActiveSemesterCard)
+ * - GET /api/admin/students?PageIndex=1&PageSize=1
+ * - GET /api/admin/doctors?PageIndex=1&PageSize=1
+ * - GET /api/admin/teaching-assistants?PageIndex=1&PageSize=1
+ * - GET /api/admin/employees?PageIndex=1&PageSize=1
+ * - GET /api/admin/departments?PageIndex=1&PageSize=1
+ * - GET /api/admin/courses?Page=1&PageSize=1
+ * - GET /api/admin/academic-years
+ * - GET /api/admin/policy-versions
  */
 
 import React, { useEffect, useState } from 'react';
-import { fakeApi } from '../../services/fakeApi';
-// When ready to connect dedicated API:
-// import { adminApi } from '../../api/admin.api';
-import { PageHead } from '../../components/layout/Breadcrumbs';
+import { api } from '../../services/api';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';
 import { ActiveSemesterCard } from '../../components/common/ActiveSemesterCard';
 import { useAuth } from '../../context/AuthContext';
 
+interface LiveAdminStats {
+  students: number | null;
+  doctors: number | null;
+  tas: number | null;
+  employees: number | null;
+  departments: number | null;
+  courses: number | null;
+  academicYears: number | null;
+  policies: number | null;
+}
+
 export const AdminDashboard: React.FC = () => {
-  const { showToast, currentUser } = useAuth();
-  const [data, setData] = useState<any>(null);
+  const { currentUser } = useAuth();
+  const [stats, setStats] = useState<LiveAdminStats>({
+    students: null,
+    doctors: null,
+    tas: null,
+    employees: null,
+    departments: null,
+    courses: null,
+    academicYears: null,
+    policies: null,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fakeApi.getAdminDashboard().then(res => {
-      setData(res);
-      setLoading(false);
-    });
+    let cancelled = false;
+    Promise.allSettled([
+      api.people.students.list({ PageIndex: 1, PageSize: 1 }),
+      api.people.doctors.list({ PageIndex: 1, PageSize: 1 }),
+      api.people.teachingAssistants.list({ PageIndex: 1, PageSize: 1 }),
+      api.people.employees.list({ PageIndex: 1, PageSize: 1 }),
+      api.departments.adminList({ PageIndex: 1, PageSize: 1 }),
+      api.courses.adminSearch({ Page: 1, PageSize: 1 }),
+      api.academicYears.getAll(),
+      api.policies.listPolicies(),
+    ])
+      .then(([stu, doc, ta, emp, dept, crs, yrs, pols]) => {
+        if (cancelled) return;
+        setStats({
+          students: stu.status === 'fulfilled' ? stu.value.meta?.totalCount ?? (stu.value.items?.length ?? 0) : null,
+          doctors: doc.status === 'fulfilled' ? doc.value.meta?.totalCount ?? (doc.value.items?.length ?? 0) : null,
+          tas: ta.status === 'fulfilled' ? ta.value.meta?.totalCount ?? (ta.value.items?.length ?? 0) : null,
+          employees: emp.status === 'fulfilled' ? emp.value.meta?.totalCount ?? (emp.value.items?.length ?? 0) : null,
+          departments: dept.status === 'fulfilled' ? dept.value.meta?.totalCount ?? (dept.value.items?.length ?? 0) : null,
+          courses: crs.status === 'fulfilled' ? crs.value.meta?.totalCount ?? (crs.value.items?.length ?? 0) : null,
+          academicYears: yrs.status === 'fulfilled' ? yrs.value.length : null,
+          policies: pols.status === 'fulfilled' ? pols.value.length : null,
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  if (loading || !data) return <CardSkeleton count={5} />;
-
-  const { kpis, enrollmentByLevel, attendanceTrend, pendingGradePackages } = data;
-
-  const handleApprove = async (code: string) => {
-    await fakeApi.approveGradePackage(code);
-    setData((prev: any) => ({
-      ...prev,
-      pendingGradePackages: prev.pendingGradePackages.filter((p: any) => p.courseCode !== code)
-    }));
-    showToast(`Grade package for ${code} officially approved and published!`, 'success');
-  };
+  const fmt = (val: number | null) => (val === null ? '—' : val.toLocaleString());
 
   return (
-    <div>
-      {/* Admin Hero */}
-      <div className="hero mb-6">
+    <div className="space-y-6">
+      <div className="hero">
         <div className="row-between wrap">
           <div>
             <div className="hero-chip mb-2">
@@ -56,15 +92,18 @@ export const AdminDashboard: React.FC = () => {
               {currentUser?.name ? `Welcome, ${currentUser.name}` : 'College Administration Overview'}
             </h1>
             <p className="sub mt-2" style={{ fontSize: '14px' }}>
-              Dean Office Portal &nbsp;•&nbsp; Academic Governance, Grade Approval, Fee Management &amp; Service Operations
+              Live institutional overview synchronized directly with FCAI BSU backend services.
             </p>
           </div>
           <div className="row gap-2 mt-2 wrap">
             <a href="#/admin/academic-years" className="btn btn-ice">
               <Icon name="calendar" /> Academic Years
             </a>
-            <a href="#/admin/levels" className="btn btn-hero-glass">
-              <Icon name="layers" /> Academic Levels
+            <a href="#/admin/semesters" className="btn btn-hero-glass">
+              <Icon name="calendarCheck" /> Semesters
+            </a>
+            <a href="#/admin/courses" className="btn btn-hero-glass">
+              <Icon name="book" /> Courses &amp; Curricula
             </a>
           </div>
         </div>
@@ -73,176 +112,108 @@ export const AdminDashboard: React.FC = () => {
       {/* Live Active Semester (GET /api/semesters/active) */}
       <ActiveSemesterCard />
 
-      {/* 6 Key Faculty KPIs */}
-      <div className="grid g-6 mb-6">
-        <a href="#/admin/students" className="card kpi hover">
-          <div className="kpi-top">
-            <span className="kpi-label">Total Students</span>
-            <span className="kpi-ico info"><Icon name="users" /></span>
-          </div>
-          <div className="kpi-value">{kpis.studentsCount}</div>
-          <div className="kpi-meta">Across 4 Academic Levels</div>
-        </a>
+      {/* Live Backend KPI Counts */}
+      {loading ? (
+        <CardSkeleton count={4} />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <a href="#/admin/students" className="card kpi hover">
+            <div className="kpi-top">
+              <span className="kpi-label">Students</span>
+              <span className="kpi-ico info"><Icon name="graduation" /></span>
+            </div>
+            <div className="kpi-value">{fmt(stats.students)}</div>
+            <div className="kpi-meta">Manage directory, transfers &amp; credit overrides</div>
+          </a>
 
-        <a href="#/admin/faculty" className="card kpi hover">
-          <div className="kpi-top">
-            <span className="kpi-label">Faculty Staff</span>
-            <span className="kpi-ico success"><Icon name="briefcase" /></span>
-          </div>
-          <div className="kpi-value">{kpis.facultyCount}</div>
-          <div className="kpi-meta">48 Doctors · 72 TAs</div>
-        </a>
+          <a href="#/admin/doctors" className="card kpi hover">
+            <div className="kpi-top">
+              <span className="kpi-label">Doctors / Faculty</span>
+              <span className="kpi-ico primary"><Icon name="briefcase" /></span>
+            </div>
+            <div className="kpi-value">{fmt(stats.doctors)}</div>
+            <div className="kpi-meta">Manage faculty accounts &amp; department heads</div>
+          </a>
 
-        <a href="#/admin/offerings" className="card kpi hover">
-          <div className="kpi-top">
-            <span className="kpi-label">Active Offerings</span>
-            <span className="kpi-ico primary"><Icon name="layers" /></span>
-          </div>
-          <div className="kpi-value">{kpis.offeringsCount}</div>
-          <div className="kpi-meta">Fall 2026 Semester</div>
-        </a>
+          <a href="#/admin/tas" className="card kpi hover">
+            <div className="kpi-top">
+              <span className="kpi-label">Teaching Assistants</span>
+              <span className="kpi-ico info"><Icon name="users" /></span>
+            </div>
+            <div className="kpi-value">{fmt(stats.tas)}</div>
+            <div className="kpi-meta">Manage TA profiles &amp; departments</div>
+          </a>
 
-        <div className="card kpi">
-          <div className="kpi-top">
-            <span className="kpi-label">Daily Attendance</span>
-            <span className="kpi-ico success"><Icon name="qr" /></span>
-          </div>
-          <div className="kpi-value">{kpis.todayAttendance}%</div>
-          <div className="kpi-meta">Faculty-wide QR Rate</div>
-        </div>
+          <a href="#/admin/employees" className="card kpi hover">
+            <div className="kpi-top">
+              <span className="kpi-label">Employees</span>
+              <span className="kpi-ico primary"><Icon name="idCard" /></span>
+            </div>
+            <div className="kpi-value">{fmt(stats.employees)}</div>
+            <div className="kpi-meta">Manage administrative staff accounts</div>
+          </a>
 
-        <a href="#/admin/service-requests" className="card kpi hover">
-          <div className="kpi-top">
-            <span className="kpi-label">Open Requests</span>
-            <span className="kpi-ico warning"><Icon name="file" /></span>
-          </div>
-          <div className="kpi-value">{kpis.openServiceRequests}</div>
-          <div className="kpi-meta">Student Affairs &amp; Dean</div>
-        </a>
+          <a href="#/admin/departments" className="card kpi hover">
+            <div className="kpi-top">
+              <span className="kpi-label">Departments</span>
+              <span className="kpi-ico info"><Icon name="building" /></span>
+            </div>
+            <div className="kpi-value">{fmt(stats.departments)}</div>
+            <div className="kpi-meta">Academic &amp; administrative units</div>
+          </a>
 
-        <a href="#/admin/fees" className="card kpi hover">
-          <div className="kpi-top">
-            <span className="kpi-label">Unpaid Fees</span>
-            <span className="kpi-ico danger"><Icon name="creditCard" /></span>
-          </div>
-          <div className="kpi-value">{kpis.unpaidFeesCount}</div>
-          <div className="kpi-meta">Pending Fawry settlement</div>
-        </a>
-      </div>
+          <a href="#/admin/courses" className="card kpi hover">
+            <div className="kpi-top">
+              <span className="kpi-label">Courses</span>
+              <span className="kpi-ico primary"><Icon name="book" /></span>
+            </div>
+            <div className="kpi-value">{fmt(stats.courses)}</div>
+            <div className="kpi-meta">Courses, prerequisites &amp; curriculum versions</div>
+          </a>
 
-      {/* Charts & Graphs Row */}
-      <div className="grid g-2 mb-6">
-        {/* Enrollment by Level */}
-        <div className="card p-5">
-          <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>
-            Student Enrollment by Academic Level
-          </h3>
-          <div className="stack gap-3">
-            {enrollmentByLevel.map((lvl: any) => {
-              const pct = Math.round((lvl.count / kpis.studentsCount) * 100);
-              return (
-                <div key={lvl.label}>
-                  <div className="row-between text-xs mb-1">
-                    <strong>{lvl.label}</strong>
-                    <span className="sub">{lvl.count} Students ({pct}%)</span>
-                  </div>
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${pct * 2}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+          <a href="#/admin/academic-years" className="card kpi hover">
+            <div className="kpi-top">
+              <span className="kpi-label">Academic Years</span>
+              <span className="kpi-ico info"><Icon name="calendar" /></span>
+            </div>
+            <div className="kpi-value">{fmt(stats.academicYears)}</div>
+            <div className="kpi-meta">Years, semesters &amp; operational windows</div>
+          </a>
 
-        {/* Attendance Trend */}
-        <div className="card p-5">
-          <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>
-            Faculty Attendance Trend (Lectures vs Labs)
-          </h3>
-          <div className="table-responsive">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Academic Week</th>
-                  <th>Lecture QR Average</th>
-                  <th>Practical Lab Average</th>
-                  <th>Composite Health</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attendanceTrend.map((row: any) => (
-                  <tr key={row.week}>
-                    <td className="bold">{row.week}</td>
-                    <td><span className="badge badge-success">{row.lectures}%</span></td>
-                    <td><span className="badge badge-info">{row.labs}%</span></td>
-                    <td className="bold" style={{ color: 'var(--color-primary)' }}>
-                      {Math.round((row.lectures + row.labs) / 2)}%
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Pending Grade Packages Queue Section */}
-      <div className="card mb-6">
-        <div className="card-head">
-          <h3>Grade Packages Awaiting Dean Approval</h3>
-          <a href="#/admin/grade-approval" className="btn btn-secondary btn-sm">
-            View All in Approval Center
+          <a href="#/admin/regulations" className="card kpi hover">
+            <div className="kpi-top">
+              <span className="kpi-label">Policy Versions</span>
+              <span className="kpi-ico primary"><Icon name="gavel" /></span>
+            </div>
+            <div className="kpi-value">{fmt(stats.policies)}</div>
+            <div className="kpi-meta">Bylaws, credit load rules &amp; grade scales</div>
           </a>
         </div>
-        {pendingGradePackages.length === 0 ? (
-          <div className="p-6 text-center sub">
-            <Icon name="checkCircle" size="lg" style={{ color: 'var(--color-success)', marginBottom: '8px' }} />
-            <div>All submitted course grade packages have been reviewed and published.</div>
-          </div>
-        ) : (
-          <div className="table-responsive">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Course Code</th>
-                  <th>Course Name</th>
-                  <th>Lead Doctor</th>
-                  <th>Enrolled</th>
-                  <th>Average Grade</th>
-                  <th>Failures</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingGradePackages.map((pkg: any) => (
-                  <tr key={pkg.id}>
-                    <td><span className="badge badge-primary">{pkg.courseCode}</span></td>
-                    <td className="bold">{pkg.courseName}</td>
-                    <td>{pkg.leadDoctor}</td>
-                    <td>{pkg.enrolledStudents} students</td>
-                    <td className="bold">{pkg.averageGrade}</td>
-                    <td>
-                      <span className={`badge ${pkg.failuresCount > 0 ? 'badge-danger' : 'badge-success'}`}>
-                        {pkg.failuresCount} Students
-                      </span>
-                    </td>
-                    <td>
-                      <div className="row gap-2">
-                        <button className="btn btn-success btn-sm" onClick={() => handleApprove(pkg.courseCode)}>
-                          <Icon name="checkCircle" /> Approve &amp; Publish
-                        </button>
-                        <a href="#/admin/grade-approval" className="btn btn-secondary btn-sm">
-                          Audit
-                        </a>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      )}
+
+      {/* Quick Live Management Links */}
+      <div className="card card-pad">
+        <h3 className="font-bold text-base mb-3">Quick Administration Modules</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+          <a href="#/admin/create-student" className="btn btn-outline justify-start">
+            <Icon name="plus" size="sm" /> Enroll New / Transferred Student
+          </a>
+          <a href="#/admin/credit-load" className="btn btn-outline justify-start">
+            <Icon name="sliders" size="sm" /> Credit Load Rules
+          </a>
+          <a href="#/admin/levels" className="btn btn-outline justify-start">
+            <Icon name="layers" size="sm" /> Academic Level Credit Ranges
+          </a>
+          <a href="#/admin/grade-scale" className="btn btn-outline justify-start">
+            <Icon name="scale" size="sm" /> Grade Scale Versions
+          </a>
+          <a href="#/admin/users" className="btn btn-outline justify-start">
+            <Icon name="shield" size="sm" /> Admin Accounts
+          </a>
+          <a href="#/account-security" className="btn btn-outline justify-start">
+            <Icon name="lock" size="sm" /> Account Security
+          </a>
+        </div>
       </div>
     </div>
   );
