@@ -490,10 +490,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, initialMode }) => 
                     ))}
                   </div>
 
-                  <p className="text-[11.5px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Session tokens are stored exclusively in memory for security. Reloading the browser tab will require signing in again.
-                  </p>
-
                   <button
                     className="btn btn-primary w-full h-11 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-all mt-2"
                     type="submit"

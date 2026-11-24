@@ -1,10 +1,9 @@
 /**
- * Centralized In-Memory Authentication Session Store
+ * Centralized Authentication Session Store
  *
- * Stores active session state exclusively in JavaScript memory.
- * No localStorage, sessionStorage, IndexedDB, or cookie token storage is used.
- *
- * Reloading the browser tab intentionally clears the session and requires sign-in.
+ * Maintains active session state and persists it across page reloads via
+ * `localStorage` (`fcai_auth_session`) so refreshing the browser keeps the
+ * user signed in until they explicitly sign out or their refresh token expires.
  */
 
 import type { User, Role } from '../types';
@@ -15,6 +14,7 @@ import type {
 } from '../types/api/auth.types';
 import {
   getRoleDisplayLabel,
+  isValidUserRole,
   mapBackendRoleToRouteRole,
 } from '../types/api/auth.types';
 
@@ -30,6 +30,8 @@ export interface AuthSessionState {
   isAuthenticated: boolean;
 }
 
+const SESSION_STORAGE_KEY = 'fcai_auth_session';
+
 const INITIAL_STATE: AuthSessionState = {
   accessToken: null,
   refreshToken: null,
@@ -42,11 +44,78 @@ const INITIAL_STATE: AuthSessionState = {
   isAuthenticated: false,
 };
 
-let state: AuthSessionState = { ...INITIAL_STATE };
+function getStorage(): Storage | null {
+  try {
+    return typeof window !== 'undefined' && window.localStorage ? window.localStorage : null;
+  } catch {
+    return null;
+  }
+}
+
+function hydrateSession(): AuthSessionState {
+  const storage = getStorage();
+  if (!storage) return { ...INITIAL_STATE };
+
+  try {
+    const raw = storage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return { ...INITIAL_STATE };
+
+    const parsed = JSON.parse(raw) as Partial<AuthSessionState>;
+    if (
+      typeof parsed.accessToken !== 'string' ||
+      !parsed.accessToken ||
+      typeof parsed.refreshToken !== 'string' ||
+      !parsed.refreshToken ||
+      !isValidUserRole(parsed.backendRole)
+    ) {
+      storage.removeItem(SESSION_STORAGE_KEY);
+      return { ...INITIAL_STATE };
+    }
+
+    const routeRole = mapBackendRoleToRouteRole(parsed.backendRole);
+    return {
+      accessToken: parsed.accessToken,
+      refreshToken: parsed.refreshToken,
+      expiresAt: typeof parsed.expiresAt === 'string' ? parsed.expiresAt : null,
+      backendRole: parsed.backendRole,
+      routeRole,
+      user: parsed.user ?? null,
+      profile: parsed.profile ?? null,
+      requiresPasswordChange: Boolean(parsed.requiresPasswordChange),
+      isAuthenticated: true,
+    };
+  } catch {
+    try {
+      storage.removeItem(SESSION_STORAGE_KEY);
+    } catch {
+      // Ignore storage cleanup errors
+    }
+    return { ...INITIAL_STATE };
+  }
+}
+
+function persistSession(next: AuthSessionState): void {
+  const storage = getStorage();
+  if (!storage) return;
+
+  try {
+    if (!next.isAuthenticated || !next.accessToken) {
+      storage.removeItem(SESSION_STORAGE_KEY);
+    } else {
+      storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
+    }
+  } catch {
+    // Ignore quota or privacy-mode storage errors
+  }
+}
+
+let state: AuthSessionState = hydrateSession();
 let pendingRedirectHash: string | null = null;
 const listeners = new Set<() => void>();
 
-function notify(): void {
+function commit(next: AuthSessionState): void {
+  state = next;
+  persistSession(state);
   listeners.forEach(listener => listener());
 }
 
@@ -134,7 +203,7 @@ export const authSession = {
     const routeRole = mapBackendRoleToRouteRole(loginData.role);
     const user = mapLoginToUser(loginData);
 
-    state = {
+    const next: AuthSessionState = {
       accessToken: loginData.token,
       refreshToken: loginData.refreshToken,
       expiresAt: loginData.expiresAt,
@@ -145,49 +214,45 @@ export const authSession = {
       requiresPasswordChange: Boolean(loginData.requiresPasswordChange),
       isAuthenticated: Boolean(loginData.token),
     };
-    notify();
-    return state;
+    commit(next);
+    return next;
   },
 
   /** Replace BOTH accessToken and refreshToken atomically after token rotation */
   updateTokens(tokens: { token: string; refreshToken: string; expiresAt: string }): void {
-    state = {
+    commit({
       ...state,
       accessToken: tokens.token,
       refreshToken: tokens.refreshToken,
       expiresAt: tokens.expiresAt,
       isAuthenticated: Boolean(tokens.token),
-    };
-    notify();
+    });
   },
 
   setProfile(profile: CurrentUserResponse): void {
     const routeRole = mapBackendRoleToRouteRole(profile.role);
-    state = {
+    commit({
       ...state,
       backendRole: profile.role,
       routeRole,
       profile,
       user: mergeProfileIntoUser(state.user, profile),
-    };
-    notify();
+    });
   },
 
   clearPasswordChangeRequirement(): void {
-    state = {
+    commit({
       ...state,
       requiresPasswordChange: false,
       user: state.user ? { ...state.user, isFirstLogin: false } : null,
-    };
-    notify();
+    });
   },
 
   clear(): void {
-    state = { ...INITIAL_STATE };
-    notify();
+    commit({ ...INITIAL_STATE });
   },
 
-  /** In-memory post-login redirect target (never stored in browser storage) */
+  /** In-memory post-login redirect target */
   setPendingRedirect(hash: string | null): void {
     pendingRedirectHash = hash;
   },

@@ -38,6 +38,12 @@ const UIContext = createContext<UIContextType | undefined>(undefined);
 
 export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
+    try {
+      const saved = window.localStorage.getItem('fcai_theme');
+      if (saved === 'dark' || saved === 'light') return saved;
+    } catch {
+      // Ignore storage access errors
+    }
     if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
       return 'dark';
     }
@@ -51,6 +57,11 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     } else {
       document.documentElement.classList.remove('dark');
     }
+    try {
+      window.localStorage.setItem('fcai_theme', theme);
+    } catch {
+      // Ignore storage access errors
+    }
   }, [theme]);
 
   const toggleTheme = useCallback(() => {
@@ -61,10 +72,24 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setThemeState(t);
   }, []);
 
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem('fcai_sidebar_collapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
 
   const toggleSidebar = useCallback(() => {
-    setIsSidebarCollapsed(prev => !prev);
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem('fcai_sidebar_collapsed', next ? '1' : '0');
+      } catch {
+        // Ignore storage access errors
+      }
+      return next;
+    });
   }, []);
 
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);

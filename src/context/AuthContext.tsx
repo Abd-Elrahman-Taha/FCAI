@@ -108,6 +108,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [ui]);
 
+  // Revalidate restored session quietly on page reload (triggers automatic token refresh if needed)
+  useEffect(() => {
+    const snapshot = authSession.getSnapshot();
+    if (!snapshot.isAuthenticated || snapshot.requiresPasswordChange) {
+      return;
+    }
+
+    let cancelled = false;
+    api.auth
+      .getMe()
+      .then(profile => {
+        if (!cancelled) {
+          authSession.setProfile(profile);
+        }
+      })
+      .catch(() => {
+        // 401/refresh failure is handled centrally by apiClient -> fcai:unauthorized
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   /**
    * GET /api/auth/me — loads full authenticated user profile into memory
    */
