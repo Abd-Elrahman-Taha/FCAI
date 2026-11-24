@@ -1,154 +1,305 @@
-import React, { useState } from 'react';
-import { fakeApi } from '../../services/fakeApi';
+/**
+ * Screen 6: Create Student Account (Regular & Transferred) (Admin)
+ *
+ * Connected strictly to confirmed Swagger endpoints:
+ * - POST /api/admin/students
+ * - POST /api/admin/students/transferred
+ * Plus live lookups: GET /api/departments/lookup, GET /api/admin/curriculum-versions,
+ * GET /api/admin/doctors, GET /api/admin/courses
+ */
+
+import React, { useEffect, useState } from 'react';
+import { api, ApiError } from '../../services/api';
+import type {
+  CourseListItemDto,
+  CreateStudentResponseDto,
+  CreateTransferredStudentResponseDto,
+  CurriculumVersionListItemDto,
+  DepartmentLookupDto,
+  DoctorListItemDto,
+  SecondaryTrack,
+} from '../../types/api';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
 import { useAuth } from '../../context/AuthContext';
 
 export const CreateStudentAccount: React.FC = () => {
   const { showToast } = useAuth();
-  const [name, setName] = useState('');
+  const [mode, setMode] = useState<'regular' | 'transferred'>('regular');
+
+  const [departments, setDepartments] = useState<DepartmentLookupDto[]>([]);
+  const [curricula, setCurricula] = useState<CurriculumVersionListItemDto[]>([]);
+  const [doctors, setDoctors] = useState<DoctorListItemDto[]>([]);
+  const [courses, setCourses] = useState<CourseListItemDto[]>([]);
+
+  // Common fields
   const [nationalId, setNationalId] = useState('');
-  const [dept, setDept] = useState('Computer Science');
-  const [academicLevel, setAcademicLevel] = useState('Level 1 (Freshman)');
-  const [academicStatus, setAcademicStatus] = useState('Active');
-  const [accountStatus, setAccountStatus] = useState('Active');
-  const [generatedResult, setGeneratedResult] = useState<any>(null);
+  const [fullNameEn, setFullNameEn] = useState('');
+  const [fullNameAr, setFullNameAr] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [gender, setGender] = useState('Male');
+  const [nationality, setNationality] = useState('Egyptian');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
+  const [governorate, setGovernorate] = useState('Beni Suef');
+  const [departmentId, setDepartmentId] = useState('');
+  const [secondaryTrack, setSecondaryTrack] = useState<SecondaryTrack>('Math');
+  const [secondaryCertificateYear, setSecondaryCertificateYear] = useState(new Date().getFullYear());
+  const [seatNumber, setSeatNumber] = useState('');
+  const [secondaryScore, setSecondaryScore] = useState(380);
+  const [admissionYear, setAdmissionYear] = useState(new Date().getFullYear());
+  const [curriculumVersionId, setCurriculumVersionId] = useState('');
+  const [advisorDoctorId, setAdvisorDoctorId] = useState('');
+  const [temporaryPassword, setTemporaryPassword] = useState('');
+
+  // Transferred student extra fields
+  const [previousInstitution, setPreviousInstitution] = useState('');
+  const [previousFacultyName, setPreviousFacultyName] = useState('');
+  const [cgpa, setCgpa] = useState(3.0);
+  const [completedCourseIds, setCompletedCourseIds] = useState<number[]>([]);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [createdResult, setCreatedResult] = useState<
+    CreateStudentResponseDto | CreateTransferredStudentResponseDto | null
+  >(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      api.departments.getLookup().catch(() => [] as DepartmentLookupDto[]),
+      api.curriculum.listVersions().catch(() => [] as CurriculumVersionListItemDto[]),
+      api.people.doctors.list({ PageIndex: 1, PageSize: 100 }).catch(() => ({ items: [] as DoctorListItemDto[] })),
+      api.courses.adminSearch({ Page: 1, PageSize: 200 }).catch(() => ({ items: [] as CourseListItemDto[] })),
+    ]).then(([depts, currs, docs, crs]) => {
+      if (cancelled) return;
+      setDepartments(depts);
+      setCurricula(currs);
+      setDoctors(docs.items ?? []);
+      setCourses(crs.items ?? []);
+      if (depts[0]) setDepartmentId(String(depts[0].id));
+      const activeCurr = currs.find(c => c.isActive) ?? currs[0];
+      if (activeCurr) setCurriculumVersionId(String(activeCurr.id));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleCourse = (id: number) => {
+    setCompletedCourseIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (nationalId.length !== 14) {
-      showToast('National ID must be exactly 14 numeric digits.', 'error');
+    setError(null);
+    setCreatedResult(null);
+    if (!fullNameEn.trim() || !nationalId.trim() || !departmentId) {
+      setError('Full name (EN), national ID, and department are required.');
       return;
     }
-    const res = await fakeApi.createStudentAccount({ name, nationalId, dept, academicLevel, academicStatus, accountStatus });
-    setGeneratedResult(res);
-    showToast(`Student account provisioned! Assigned code: ${res.studentCode}`, 'success');
+    if (mode === 'transferred' && !curriculumVersionId) {
+      setError('Curriculum version is required for transferred students.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      if (mode === 'regular') {
+        const res = await api.people.students.create({
+          nationalId: nationalId.trim(),
+          fullNameEn: fullNameEn.trim(),
+          fullNameAr: fullNameAr.trim() || null,
+          dateOfBirth: dateOfBirth || null,
+          gender,
+          nationality: nationality.trim() || null,
+          phone: phone.trim() || null,
+          email: email.trim() || null,
+          address: address.trim() || null,
+          governorate: governorate.trim() || null,
+          departmentId: Number(departmentId),
+          secondaryTrack,
+          secondaryCertificateYear: Number(secondaryCertificateYear),
+          seatNumber: seatNumber.trim() || null,
+          secondaryScore: Number(secondaryScore),
+          admissionYear: Number(admissionYear),
+          curriculumVersionId: curriculumVersionId ? Number(curriculumVersionId) : null,
+          academicAdvisorDoctorId: advisorDoctorId ? Number(advisorDoctorId) : null,
+          temporaryPassword: temporaryPassword || null,
+        });
+        setCreatedResult(res.data);
+        showToast('Student Account Created', res.message, 'success');
+      } else {
+        const res = await api.people.students.createTransferred({
+          nationalId: nationalId.trim(),
+          fullNameEn: fullNameEn.trim(),
+          fullNameAr: fullNameAr.trim() || null,
+          dateOfBirth: dateOfBirth || null,
+          gender,
+          nationality: nationality.trim() || null,
+          phone: phone.trim() || null,
+          email: email.trim() || null,
+          address: address.trim() || null,
+          governorate: governorate.trim() || null,
+          departmentId: Number(departmentId),
+          secondaryTrack,
+          secondaryCertificateYear: Number(secondaryCertificateYear),
+          seatNumber: seatNumber.trim() || null,
+          secondaryScore: Number(secondaryScore),
+          admissionYear: Number(admissionYear),
+          curriculumVersionId: Number(curriculumVersionId),
+          academicAdvisorDoctorId: advisorDoctorId ? Number(advisorDoctorId) : null,
+          previousInstitution: previousInstitution.trim() || null,
+          previousFacultyName: previousFacultyName.trim() || null,
+          cgpa: Number(cgpa),
+          completedCourseIds,
+          temporaryPassword: temporaryPassword || null,
+        });
+        setCreatedResult(res.data);
+        showToast('Transferred Student Created', res.message, 'success');
+      }
+    } catch (err: unknown) {
+      setError(err instanceof ApiError || err instanceof Error ? err.message : 'Failed to create student.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHead
-        title="Screen 6: Create / Activate Student Account"
-        subtitle="Provision student identity, National ID validation, academic status, and temporary credentials"
-        breadcrumbs={[
-          { label: 'College Admin', href: '#/admin/dashboard' },
+        crumbs={[
+          { label: 'Admin', href: '#/admin/dashboard' },
           { label: 'Students', href: '#/admin/students' },
-          { label: 'Create Account' }
+          { label: 'Create Student Account' },
         ]}
+        title="Enroll New Student Account"
+        subtitle="Register either a standard incoming freshman or a transferred student with equivalent completed courses."
+        actions={
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className={`btn btn-sm ${mode === 'regular' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setMode('regular')}
+            >
+              Regular Student
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${mode === 'transferred' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setMode('transferred')}
+            >
+              Transferred Student
+            </button>
+          </div>
+        }
       />
 
-      <div className="grid g-2 mb-6" style={{ maxWidth: '900px' }}>
-        <div className="card p-6">
-          <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>
-            Student Provisioning Form
-          </h3>
-          <form onSubmit={handleSubmit}>
-            <div className="form-group mb-3">
-              <label className="form-label">Student Full Name (Triple/Quadruple name)</label>
-              <input
-                type="text"
-                className="input"
-                placeholder="e.g. Mahmoud Tarek Adel"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-group mb-3">
-              <label className="form-label">Egyptian National ID (14 Digits)</label>
-              <input
-                type="text"
-                maxLength={14}
-                className="input"
-                placeholder="e.g. 30401012201234"
-                value={nationalId}
-                onChange={e => setNationalId(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="grid g-2 mb-3">
-              <div className="form-group">
-                <label className="form-label">Department Assignment</label>
-                <select className="select" value={dept} onChange={e => setDept(e.target.value)}>
-                  <option value="Computer Science">Computer Science</option>
-                  <option value="Artificial Intelligence">Artificial Intelligence</option>
-                  <option value="Information Systems">Information Systems</option>
-                  <option value="Information Technology">Information Technology</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Academic Level</label>
-                <select className="select" value={academicLevel} onChange={e => setAcademicLevel(e.target.value)}>
-                  <option value="Level 1 (Freshman)">Level 1 (Freshman)</option>
-                  <option value="Level 2 (Sophomore)">Level 2 (Sophomore)</option>
-                  <option value="Level 3 (Junior)">Level 3 (Junior)</option>
-                  <option value="Level 4 (Senior)">Level 4 (Senior)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid g-2 mb-4">
-              <div className="form-group">
-                <label className="form-label">Academic Status</label>
-                <select className="select" value={academicStatus} onChange={e => setAcademicStatus(e.target.value)}>
-                  <option value="Active">Active (Good Standing)</option>
-                  <option value="Probationary">Academic Probation (GPA &lt; 2.0)</option>
-                  <option value="Suspended">Suspended / On Leave</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Account Login Status</label>
-                <select className="select" value={accountStatus} onChange={e => setAccountStatus(e.target.value)}>
-                  <option value="Active">Active &amp; Provisioned</option>
-                  <option value="Pending First Login">Pending First Login</option>
-                  <option value="Locked">Temporarily Locked</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="row-end gap-2">
-              <a href="#/admin/students" className="btn btn-secondary">Cancel</a>
-              <button type="submit" className="btn btn-primary">
-                <Icon name="checkCircle" /> Provision &amp; Activate Account
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Temporary Credentials Dispatch Card */}
-        <div>
-          <div className="card p-6" style={{ background: generatedResult ? '#f0fdf4' : 'var(--color-bg-page)', border: generatedResult ? '1px solid #86efac' : '1px solid var(--color-border)' }}>
-            <h4 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>
-              Account Activation Slip
-            </h4>
-            {generatedResult ? (
-              <div className="stack gap-3 text-sm">
-                <div className="badge badge-success mb-2">Account Successfully Created</div>
-                <div className="p-3 bg-white rounded border">
-                  <span className="sub text-xs block">Assigned Student Code:</span>
-                  <code style={{ fontSize: '16px', fontWeight: 700, color: 'var(--color-primary)' }}>{generatedResult.studentCode}</code>
-                </div>
-                <div className="p-3 bg-white rounded border">
-                  <span className="sub text-xs block">Temporary First-Login Password:</span>
-                  <code style={{ fontSize: '16px', fontWeight: 700, color: 'var(--color-danger)' }}>{generatedResult.tempPassword}</code>
-                </div>
-                <p className="sub text-xs leading-relaxed">
-                  Provide these credentials to the student. Upon first authentication, the platform will enforce temporary password replacement on Screen 2.
-                </p>
-                <button className="btn btn-secondary btn-sm w-full" onClick={() => window.print()}>
-                  <Icon name="download" /> Print Credentials Slip
-                </button>
-              </div>
-            ) : (
-              <p className="sub text-xs leading-relaxed">
-                Fill the provisioning form on the left to issue an official Beni Suef University student identifier and activation slip.
-              </p>
+      {createdResult && (
+        <div className="alert alert-info text-sm flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <b>Student Enrolled!</b> Code: <code className="font-mono font-bold">{createdResult.studentCode}</code> · Email:{' '}
+            <b>{createdResult.email}</b>
+            {createdResult.temporaryPassword && (
+              <span> · Temp Password: <code className="font-mono font-bold">{createdResult.temporaryPassword}</code></span>
             )}
           </div>
+          <a href="#/admin/students" className="btn btn-primary btn-xs">Back to Students</a>
         </div>
-      </div>
+      )}
+
+      {error && (
+        <div className="alert alert-danger text-sm">
+          <Icon name="alert" size="sm" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="card card-pad space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div><label className="label">National ID</label><input className="input" value={nationalId} onChange={e => setNationalId(e.target.value)} required /></div>
+          <div><label className="label">Full Name (EN)</label><input className="input" value={fullNameEn} onChange={e => setFullNameEn(e.target.value)} required /></div>
+          <div><label className="label">Full Name (AR)</label><input className="input" dir="rtl" value={fullNameAr} onChange={e => setFullNameAr(e.target.value)} /></div>
+          <div><label className="label">Email</label><input type="email" className="input" value={email} onChange={e => setEmail(e.target.value)} /></div>
+          <div><label className="label">Phone</label><input className="input" value={phone} onChange={e => setPhone(e.target.value)} /></div>
+          <div><label className="label">Date of Birth</label><input type="date" className="input" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} /></div>
+          <div>
+            <label className="label">Gender</label>
+            <select className="input" value={gender} onChange={e => setGender(e.target.value)}>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </div>
+          <div><label className="label">Nationality</label><input className="input" value={nationality} onChange={e => setNationality(e.target.value)} /></div>
+          <div><label className="label">Governorate</label><input className="input" value={governorate} onChange={e => setGovernorate(e.target.value)} /></div>
+          <div className="sm:col-span-2 lg:col-span-3"><label className="label">Address</label><input className="input" value={address} onChange={e => setAddress(e.target.value)} /></div>
+
+          <div>
+            <label className="label">Department</label>
+            <select className="input" value={departmentId} onChange={e => setDepartmentId(e.target.value)} required>
+              <option value="">Select department...</option>
+              {departments.map(d => <option key={d.id} value={String(d.id)}>{d.code} · {d.nameEn}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">Secondary Track</label>
+            <select className="input" value={secondaryTrack} onChange={e => setSecondaryTrack(e.target.value as SecondaryTrack)}>
+              <option value="Math">Math</option>
+              <option value="Science">Science</option>
+            </select>
+          </div>
+          <div><label className="label">Secondary Certificate Year</label><input type="number" className="input" value={secondaryCertificateYear} onChange={e => setSecondaryCertificateYear(Number(e.target.value))} required /></div>
+          <div><label className="label">Seat Number</label><input className="input" value={seatNumber} onChange={e => setSeatNumber(e.target.value)} /></div>
+          <div><label className="label">Secondary Score</label><input type="number" step="0.5" className="input" value={secondaryScore} onChange={e => setSecondaryScore(Number(e.target.value))} required /></div>
+          <div><label className="label">Admission Year</label><input type="number" className="input" value={admissionYear} onChange={e => setAdmissionYear(Number(e.target.value))} required /></div>
+
+          <div>
+            <label className="label">Curriculum Version {mode === 'transferred' ? '(Required)' : '(Optional)'}</label>
+            <select className="input" value={curriculumVersionId} onChange={e => setCurriculumVersionId(e.target.value)} required={mode === 'transferred'}>
+              <option value="">Default Active</option>
+              {curricula.map(cv => <option key={cv.id} value={String(cv.id)}>{cv.name} (v{cv.versionNumber})</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">Academic Advisor (Optional)</label>
+            <select className="input" value={advisorDoctorId} onChange={e => setAdvisorDoctorId(e.target.value)}>
+              <option value="">None</option>
+              {doctors.map(d => <option key={d.id} value={String(d.id)}>{d.fullNameEn}</option>)}
+            </select>
+          </div>
+          <div><label className="label">Temporary Password (Optional)</label><input type="password" className="input" value={temporaryPassword} onChange={e => setTemporaryPassword(e.target.value)} /></div>
+        </div>
+
+        {mode === 'transferred' && (
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
+            <h3 className="font-bold text-base">Transfer Details &amp; Equivalent Courses</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div><label className="label">Previous Institution</label><input className="input" value={previousInstitution} onChange={e => setPreviousInstitution(e.target.value)} required /></div>
+              <div><label className="label">Previous Faculty</label><input className="input" value={previousFacultyName} onChange={e => setPreviousFacultyName(e.target.value)} required /></div>
+              <div><label className="label">Transferred CGPA</label><input type="number" step="0.01" className="input" value={cgpa} onChange={e => setCgpa(Number(e.target.value))} required /></div>
+            </div>
+            <div>
+              <label className="label">Completed Equivalent Courses ({completedCourseIds.length} selected)</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto p-2 rounded-xl border border-slate-200 dark:border-slate-800">
+                {courses.map(c => (
+                  <label key={c.id} className="flex items-center gap-2 text-xs cursor-pointer p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800/60">
+                    <input type="checkbox" checked={completedCourseIds.includes(c.id)} onChange={() => toggleCourse(c.id)} />
+                    <span className="font-mono font-bold">{c.code}</span>
+                    <span className="truncate">{c.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <a href="#/admin/students" className="btn btn-outline">Cancel</a>
+          <button type="submit" className="btn btn-primary" disabled={submitting}>
+            {submitting ? 'Creating...' : mode === 'regular' ? 'Create Student' : 'Create Transferred Student'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

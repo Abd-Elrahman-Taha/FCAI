@@ -1,189 +1,357 @@
-import React, { useState } from 'react';
+/**
+ * Screen 77: Employees Management (Admin)
+ *
+ * Connected strictly to all 8 confirmed Swagger AdminEmployees endpoints:
+ * - GET  /api/admin/employees
+ * - POST /api/admin/employees
+ * - GET  /api/admin/employees/{id}
+ * - PUT  /api/admin/employees/{id}
+ * - POST /api/admin/employees/{id}/activate
+ * - POST /api/admin/employees/{id}/deactivate
+ * - POST /api/admin/employees/{id}/transfer-department
+ * - POST /api/admin/employees/{id}/reset-password
+ */
+
+import React, { useCallback, useEffect, useState } from 'react';
+import { api, ApiError } from '../../services/api';
+import type {
+  CreateEmployeeResponseDto,
+  DepartmentLookupDto,
+  EmployeeListItemDto,
+  EmployeeProfileResponseDto,
+  PaginationMetadata,
+} from '../../types/api';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
+import { CardSkeleton } from '../../components/common/LoadingSkeleton';
 import { useAuth } from '../../context/AuthContext';
 
 export const AdminEmployees: React.FC = () => {
   const { showToast } = useAuth();
-  const [deptFilter, setDeptFilter] = useState('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [addModalOpen, setAddModalOpen] = useState(false);
 
-  // Initial staff data
-  const [employees, setEmployees] = useState([
-    { id: 'EMP-301', name: 'Salma Ibrahim', dept: 'Student Affairs', role: 'Senior Affairs Officer', email: 'salma.ibrahim@fcai.bsu.edu.eg', phone: '+20 106 333 7744', status: 'Active', permissions: 'ServiceRequests, Transcripts, StudentLookup' },
-    { id: 'EMP-302', name: 'Amr Mamdouh', dept: 'Student Affairs', role: 'Affairs Specialist', email: 'amr.mamdouh@fcai.bsu.edu.eg', phone: '+20 101 222 9988', status: 'Active', permissions: 'EnrollmentCerts, MilitaryLetters' },
-    { id: 'EMP-303', name: 'Nadia Soliman', dept: 'Youth Care & Activities', role: 'Activities Director', email: 'nadia.soliman@fcai.bsu.edu.eg', phone: '+20 122 444 8811', status: 'Active', permissions: 'UnionClubs, Competitions, Trips' },
-    { id: 'EMP-304', name: 'Mahmoud Saeed', dept: 'IT Systems & Infrastructure', role: 'Network Administrator', email: 'mahmoud.saeed@fcai.bsu.edu.eg', phone: '+20 114 888 2233', status: 'Active', permissions: 'NetworkAccess, ServerLogs, SmartCards' },
-    { id: 'EMP-305', name: 'Fatma Gamal', dept: 'Library & Learning Resources', role: 'Chief Librarian', email: 'fatma.gamal@fcai.bsu.edu.eg', phone: '+20 100 666 4411', status: 'Active', permissions: 'LibraryLoans, DigitalRepository' }
-  ]);
+  const [items, setItems] = useState<EmployeeListItemDto[]>([]);
+  const [meta, setMeta] = useState<PaginationMetadata | null>(null);
+  const [departments, setDepartments] = useState<DepartmentLookupDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Form state
-  const [name, setName] = useState('');
-  const [dept, setDept] = useState('Student Affairs');
-  const [roleTitle, setRoleTitle] = useState('Affairs Specialist');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [deptFilter, setDeptFilter] = useState('');
+  const [activeFilter, setActiveFilter] = useState('');
+  const [pageIndex, setPageIndex] = useState(1);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const [detail, setDetail] = useState<EmployeeProfileResponseDto | null>(null);
+  const [createdBanner, setCreatedBanner] = useState<CreateEmployeeResponseDto | null>(null);
+
+  // Create / Edit modal
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [fullNameEn, setFullNameEn] = useState('');
+  const [fullNameAr, setFullNameAr] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [departmentId, setDepartmentId] = useState('');
+  const [jobTitle, setJobTitle] = useState('Student Affairs Officer');
+  const [hireDate, setHireDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [tempPassword, setTempPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const handleAddEmployee = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !email) {
-      showToast('Please provide name and institutional email.', 'warning');
-      return;
-    }
-    const newEmp = {
-      id: `EMP-${Math.floor(300 + Math.random() * 600)}`,
-      name,
-      dept,
-      role: roleTitle,
-      email,
-      phone: phone || '+20 100 000 0000',
-      status: 'Active',
-      permissions: 'Basic Employee Access'
+  const [transferTarget, setTransferTarget] = useState<EmployeeListItemDto | null>(null);
+  const [transferDeptId, setTransferDeptId] = useState('');
+  const [resetTarget, setResetTarget] = useState<EmployeeListItemDto | null>(null);
+  const [resetTempPw, setResetTempPw] = useState('');
+
+  const loadEmployees = useCallback(
+    async (page = pageIndex, search = searchTerm, dept = deptFilter, active = activeFilter) => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const res = await api.people.employees.list({
+          PageIndex: page,
+          PageSize: 15,
+          SearchTerm: search.trim() || undefined,
+          DepartmentId: dept ? Number(dept) : undefined,
+          IsActive: active === '' ? undefined : active === 'true',
+        });
+        setItems(res.items ?? []);
+        setMeta(res.meta ?? null);
+      } catch (err: unknown) {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load employees.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [pageIndex, searchTerm, deptFilter, activeFilter]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      api.people.employees.list({ PageIndex: 1, PageSize: 15 }),
+      api.departments.getLookup().catch(() => [] as DepartmentLookupDto[]),
+    ])
+      .then(([empRes, deptList]) => {
+        if (cancelled) return;
+        setItems(empRes.items ?? []);
+        setMeta(empRes.meta ?? null);
+        setDepartments(deptList);
+        setLoadError(null);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load employees.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
     };
-    setEmployees(prev => [newEmp, ...prev]);
-    setAddModalOpen(false);
-    setName('');
+  }, []);
+
+  const openCreate = () => {
+    setModalMode('create');
+    setEditingId(null);
+    setFullNameEn('');
+    setFullNameAr('');
     setEmail('');
-    setPhone('');
-    showToast('New staff member account created.', 'success');
+    setPhoneNumber('');
+    setDepartmentId(departments[0] ? String(departments[0].id) : '');
+    setJobTitle('Student Affairs Officer');
+    setHireDate(new Date().toISOString().slice(0, 10));
+    setTempPassword('');
+    setFormError(null);
   };
 
-  const filtered = employees.filter(e => {
-    const matchesDept = deptFilter === 'ALL' || e.dept === deptFilter;
-    const matchesSearch = e.name.toLowerCase().includes(searchQuery.toLowerCase()) || e.email.toLowerCase().includes(searchQuery.toLowerCase()) || e.id.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesDept && matchesSearch;
-  });
+  const openEdit = async (id: number) => {
+    setBusyId(id);
+    setFormError(null);
+    try {
+      const fresh = await api.people.employees.getById(id);
+      setEditingId(fresh.id);
+      setFullNameEn(fresh.fullNameEn ?? '');
+      setFullNameAr(fresh.fullNameAr ?? '');
+      setEmail(fresh.email ?? '');
+      setPhoneNumber(fresh.phoneNumber ?? '');
+      setDepartmentId(String(fresh.departmentId));
+      setJobTitle(fresh.jobTitle ?? '');
+      setHireDate(fresh.hireDate);
+      setModalMode('edit');
+    } catch (err: unknown) {
+      showToast('Load Failed', err instanceof Error ? err.message : 'Failed to load employee.', 'error');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    if (!fullNameEn.trim() || !email.trim() || !departmentId) {
+      setFormError('Full name, email, and department are required.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      if (modalMode === 'create') {
+        const res = await api.people.employees.create({
+          fullNameEn: fullNameEn.trim(),
+          fullNameAr: fullNameAr.trim() || null,
+          email: email.trim(),
+          phoneNumber: phoneNumber.trim() || null,
+          departmentId: Number(departmentId),
+          jobTitle: jobTitle.trim() || null,
+          hireDate,
+          temporaryPassword: tempPassword || null,
+        });
+        setCreatedBanner(res.data);
+        showToast('Employee Created', res.message, 'success');
+      } else if (modalMode === 'edit' && editingId !== null) {
+        const res = await api.people.employees.update(editingId, {
+          fullNameEn: fullNameEn.trim(),
+          fullNameAr: fullNameAr.trim() || null,
+          email: email.trim(),
+          phoneNumber: phoneNumber.trim() || null,
+          departmentId: Number(departmentId),
+          jobTitle: jobTitle.trim() || null,
+          hireDate,
+        });
+        showToast('Employee Updated', res.message, 'success');
+      }
+      setModalMode(null);
+      await loadEmployees(pageIndex);
+    } catch (err: unknown) {
+      setFormError(err instanceof ApiError || err instanceof Error ? err.message : 'Save failed.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleToggleActive = async (emp: EmployeeListItemDto) => {
+    setBusyId(emp.id);
+    try {
+      const msg = emp.isActive
+        ? await api.people.employees.deactivate(emp.id)
+        : await api.people.employees.activate(emp.id);
+      showToast(emp.isActive ? 'Employee Deactivated' : 'Employee Activated', msg, 'success');
+      await loadEmployees(pageIndex);
+    } catch (err: unknown) {
+      showToast('Action Failed', err instanceof Error ? err.message : 'Status update failed.', 'error');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleTransfer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!transferTarget || !transferDeptId) return;
+    try {
+      const res = await api.people.employees.transfer(transferTarget.id, { departmentId: Number(transferDeptId) });
+      showToast('Department Transferred', res.message, 'success');
+      setTransferTarget(null);
+      await loadEmployees(pageIndex);
+    } catch (err: unknown) {
+      showToast('Transfer Failed', err instanceof Error ? err.message : 'Transfer failed.', 'error');
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetTarget) return;
+    try {
+      const msg = await api.people.employees.resetPassword(resetTarget.id, {
+        newTemporaryPassword: resetTempPw || null,
+      });
+      showToast('Password Reset', msg, 'success');
+      setResetTarget(null);
+      setResetTempPw('');
+    } catch (err: unknown) {
+      showToast('Reset Failed', err instanceof Error ? err.message : 'Password reset failed.', 'error');
+    }
+  };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHead
-        title="Screen 77: Administrative Staff & Employees Management"
-        subtitle="Manage administrative departments, officer credentials, functional desks, and operational scopes"
-        breadcrumbs={[
-          { label: 'College Admin', href: '#/admin/dashboard' },
-          { label: 'Staff Directory', href: '#/admin/employees' },
-          { label: 'Screen 77: Employees' }
+        crumbs={[
+          { label: 'Admin', href: '#/admin/dashboard' },
+          { label: 'People' },
+          { label: 'Employees' },
         ]}
+        title="Administrative Staff & Employees"
+        subtitle="Manage college employee accounts, job titles, department transfers, and account lifecycle."
         actions={
-          <div className="row gap-2">
-            <a href="#/admin/employee-lifecycle" className="btn btn-secondary">
-              <Icon name="users" /> Staff Lifecycle (Screen 78)
-            </a>
-            <button className="btn btn-primary" onClick={() => setAddModalOpen(true)}>
-              <Icon name="plus" /> Add Employee Account
-            </button>
-          </div>
+          <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
+            <Icon name="plus" size="sm" /> Add Employee
+          </button>
         }
       />
 
-      {/* KPI Stats */}
-      <div className="grid g-4 mb-4">
-        <div className="card p-3">
-          <div className="text-xs sub bold">Total Administrative Staff</div>
-          <div className="h3 bold text-primary mt-1">{employees.length} <span className="text-xs sub">Officers</span></div>
+      {createdBanner && (
+        <div className="alert alert-info flex items-center justify-between gap-3 text-sm">
+          <div>
+            <b>Employee Created:</b> {createdBanner.fullNameEn} ({createdBanner.email})
+            {createdBanner.temporaryPassword && (
+              <span> · Temporary Password: <code className="font-mono font-bold">{createdBanner.temporaryPassword}</code></span>
+            )}
+          </div>
+          <button type="button" className="btn btn-outline btn-xs" onClick={() => setCreatedBanner(null)}>Dismiss</button>
         </div>
-        <div className="card p-3">
-          <div className="text-xs sub bold">Student Affairs Officers</div>
-          <div className="h3 bold text-success mt-1">2 <span className="text-xs sub">Active Desks</span></div>
-        </div>
-        <div className="card p-3">
-          <div className="text-xs sub bold">IT &amp; Infrastructure</div>
-          <div className="h3 bold text-info mt-1">1 <span className="text-xs sub">SysAdmin</span></div>
-        </div>
-        <div className="card p-3">
-          <div className="text-xs sub bold">Service Requests Desk</div>
-          <div className="h3 bold text-neutral mt-1">100% Operational</div>
-        </div>
+      )}
+
+      <div className="card card-pad">
+        <form
+          onSubmit={e => {
+            e.preventDefault();
+            setPageIndex(1);
+            void loadEmployees(1, searchTerm, deptFilter, activeFilter);
+          }}
+          className="grid grid-cols-1 md:grid-cols-4 gap-3"
+        >
+          <input className="input" placeholder="Search employees..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          <select
+            className="input"
+            value={deptFilter}
+            onChange={e => {
+              setDeptFilter(e.target.value);
+              setPageIndex(1);
+              void loadEmployees(1, searchTerm, e.target.value, activeFilter);
+            }}
+          >
+            <option value="">All Departments</option>
+            {departments.map(d => <option key={d.id} value={String(d.id)}>{d.code} · {d.nameEn}</option>)}
+          </select>
+          <select
+            className="input"
+            value={activeFilter}
+            onChange={e => {
+              setActiveFilter(e.target.value);
+              setPageIndex(1);
+              void loadEmployees(1, searchTerm, deptFilter, e.target.value);
+            }}
+          >
+            <option value="">All Statuses</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+          <button type="submit" className="btn btn-primary btn-sm">Filter</button>
+        </form>
       </div>
 
-      {/* Filter Bar */}
-      <div className="card p-3 mb-4">
-        <div className="row-between wrap gap-3">
-          <div className="row gap-3">
-            <div>
-              <label className="text-xs bold sub block mb-1">Filter Department</label>
-              <select
-                className="input"
-                value={deptFilter}
-                onChange={e => setDeptFilter(e.target.value)}
-              >
-                <option value="ALL">All Departments</option>
-                <option value="Student Affairs">Student Affairs</option>
-                <option value="Youth Care & Activities">Youth Care &amp; Activities</option>
-                <option value="IT Systems & Infrastructure">IT Systems &amp; Infrastructure</option>
-                <option value="Library & Learning Resources">Library &amp; Learning Resources</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs bold sub block mb-1">Search Employee</label>
-              <div className="input-search">
-                <input
-                  type="text"
-                  placeholder="Filter by name, ID, or email..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="text-sm sub self-center">
-            Showing <strong>{filtered.length}</strong> Administrative Officers
-          </div>
+      {loading ? (
+        <CardSkeleton />
+      ) : loadError ? (
+        <div className="card card-pad state">
+          <div className="state-art danger"><Icon name="alert" size="lg" /></div>
+          <h3>Failed to load employees</h3>
+          <p className="text-sm muted">{loadError}</p>
         </div>
-      </div>
-
-      {/* Employees Table */}
-      <div className="card overflow-hidden">
-        <div className="table-responsive">
-          <table className="table">
+      ) : items.length === 0 ? (
+        <div className="card card-pad state">
+          <div className="state-art"><Icon name="idCard" size="lg" /></div>
+          <h3>No Employees Found</h3>
+        </div>
+      ) : (
+        <div className="card overflow-x-auto">
+          <table className="table w-full">
             <thead>
               <tr>
-                <th>Employee / Staff</th>
+                <th>Employee</th>
+                <th>Contact</th>
                 <th>Department</th>
-                <th>Job Title / Desk</th>
-                <th>Institutional Contact</th>
-                <th>Permitted Scopes</th>
-                <th className="text-center">Status</th>
-                <th style={{ width: '140px' }} className="text-center">Actions</th>
+                <th>Job Title</th>
+                <th>Status</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(emp => (
+              {items.map(emp => (
                 <tr key={emp.id}>
                   <td>
-                    <div className="bold">{emp.name}</div>
-                    <code className="text-xs bold">{emp.id}</code>
+                    <div className="font-semibold">{emp.fullNameEn}</div>
+                    {emp.fullNameAr && <div className="text-xs muted">{emp.fullNameAr}</div>}
                   </td>
-                  <td>
-                    <span className="text-sm">{emp.dept}</span>
+                  <td className="text-xs">
+                    <div>{emp.email}</div>
+                    <div className="muted font-mono">{emp.phoneNumber || '—'}</div>
                   </td>
-                  <td>
-                    <span className="badge badge-ice">{emp.role}</span>
-                  </td>
-                  <td>
-                    <div className="text-xs">{emp.email}</div>
-                    <div className="text-xs sub">{emp.phone}</div>
-                  </td>
-                  <td>
-                    <span className="text-xs sub">{emp.permissions}</span>
-                  </td>
-                  <td className="text-center">
-                    <span className="badge badge-success">{emp.status}</span>
-                  </td>
-                  <td className="text-center">
-                    <div className="row gap-1 justify-center">
+                  <td className="text-sm">{emp.departmentName || '—'}</td>
+                  <td className="text-xs">{emp.jobTitle || '—'}</td>
+                  <td><span className={emp.isActive ? 'chip chip-primary' : 'chip chip-danger'}>{emp.isActive ? 'Active' : 'Inactive'}</span></td>
+                  <td className="text-right">
+                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                      <button type="button" className="btn btn-outline btn-xs" onClick={() => void api.people.employees.getById(emp.id).then(setDetail)}>View</button>
+                      <button type="button" className="btn btn-outline btn-xs" disabled={busyId === emp.id} onClick={() => void openEdit(emp.id)}>Edit</button>
+                      <button type="button" className="btn btn-outline btn-xs" onClick={() => { setTransferTarget(emp); setTransferDeptId(departments[0] ? String(departments[0].id) : ''); }}>Transfer</button>
+                      <button type="button" className="btn btn-outline btn-xs" onClick={() => { setResetTarget(emp); setResetTempPw(''); }}>Reset PW</button>
                       <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => showToast(`Edit permissions for ${emp.name}`, 'info')}
+                        type="button"
+                        className={emp.isActive ? 'btn btn-danger btn-xs' : 'btn btn-primary btn-xs'}
+                        disabled={busyId === emp.id}
+                        onClick={() => void handleToggleActive(emp)}
                       >
-                        <Icon name="lock" size="sm" />
-                      </button>
-                      <button
-                        className="btn btn-neutral btn-sm"
-                        onClick={() => showToast(`Edit modal opened for ${emp.name}`, 'info')}
-                      >
-                        <Icon name="edit" size="sm" /> Edit
+                        {emp.isActive ? 'Deactivate' : 'Activate'}
                       </button>
                     </div>
                   </td>
@@ -191,90 +359,115 @@ export const AdminEmployees: React.FC = () => {
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
 
-      {/* Add Employee Modal */}
-      {addModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card" style={{ maxWidth: '520px' }}>
-            <div className="modal-head">
-              <h3>Add Administrative Staff Member</h3>
-              <button className="btn-close" onClick={() => setAddModalOpen(false)}>×</button>
-            </div>
-            <form onSubmit={handleAddEmployee} className="modal-body p-4 stack gap-3">
-              <div>
-                <label className="text-xs bold sub block mb-1">Full Name</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="e.g. Salma Ibrahim"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  required
-                />
+          {meta && meta.totalPages > 1 && (
+            <div className="flex items-center justify-between p-4 border-t border-slate-200 dark:border-slate-800 text-sm">
+              <span className="muted">Page {meta.pageIndex} / {meta.totalPages} ({meta.totalCount})</span>
+              <div className="flex gap-2">
+                <button type="button" className="btn btn-outline btn-xs" disabled={!meta.hasPreviousPage} onClick={() => { setPageIndex(pageIndex - 1); void loadEmployees(pageIndex - 1); }}>Previous</button>
+                <button type="button" className="btn btn-outline btn-xs" disabled={!meta.hasNextPage} onClick={() => { setPageIndex(pageIndex + 1); void loadEmployees(pageIndex + 1); }}>Next</button>
               </div>
+            </div>
+          )}
+        </div>
+      )}
 
-              <div className="grid g-2">
+      {/* Create / Edit Modal */}
+      {modalMode && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal card card-pad" style={{ maxWidth: '560px', width: '100%' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">{modalMode === 'create' ? 'Create Employee' : 'Edit Employee'}</h3>
+              <button type="button" className="icon-btn" onClick={() => !submitting && setModalMode(null)}><Icon name="x" size="sm" /></button>
+            </div>
+            {formError && <div className="alert alert-danger mb-3 text-sm">{formError}</div>}
+            <form onSubmit={handleSave} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div><label className="label">Full Name (EN)</label><input className="input" value={fullNameEn} onChange={e => setFullNameEn(e.target.value)} required /></div>
+                <div><label className="label">Full Name (AR)</label><input className="input" dir="rtl" value={fullNameAr} onChange={e => setFullNameAr(e.target.value)} /></div>
+                <div><label className="label">Email</label><input type="email" className="input" value={email} onChange={e => setEmail(e.target.value)} required /></div>
+                <div><label className="label">Phone</label><input className="input" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} /></div>
                 <div>
-                  <label className="text-xs bold sub block mb-1">Department</label>
-                  <select
-                    className="input"
-                    value={dept}
-                    onChange={e => setDept(e.target.value)}
-                  >
-                    <option value="Student Affairs">Student Affairs</option>
-                    <option value="Youth Care & Activities">Youth Care &amp; Activities</option>
-                    <option value="IT Systems & Infrastructure">IT Systems &amp; Infrastructure</option>
-                    <option value="Library & Learning Resources">Library &amp; Learning Resources</option>
-                    <option value="Dean Executive Office">Dean Executive Office</option>
+                  <label className="label">Department</label>
+                  <select className="input" value={departmentId} onChange={e => setDepartmentId(e.target.value)} required>
+                    <option value="">Select department...</option>
+                    {departments.map(d => <option key={d.id} value={String(d.id)}>{d.code} · {d.nameEn}</option>)}
                   </select>
                 </div>
-                <div>
-                  <label className="text-xs bold sub block mb-1">Functional Desk Role</label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="e.g. Senior Affairs Officer"
-                    value={roleTitle}
-                    onChange={e => setRoleTitle(e.target.value)}
-                    required
-                  />
-                </div>
+                <div><label className="label">Job Title</label><input className="input" value={jobTitle} onChange={e => setJobTitle(e.target.value)} /></div>
+                <div><label className="label">Hire Date</label><input type="date" className="input" value={hireDate} onChange={e => setHireDate(e.target.value)} required /></div>
               </div>
-
-              <div>
-                <label className="text-xs bold sub block mb-1">Institutional Email</label>
-                <input
-                  type="email"
-                  className="input"
-                  placeholder="salma.ibrahim@fcai.bsu.edu.eg"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="text-xs bold sub block mb-1">Phone Number</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="+20 106 333 7744"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                />
-              </div>
-
-              <div className="row-between gap-2 mt-2">
-                <button type="button" className="btn btn-secondary" onClick={() => setAddModalOpen(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  <Icon name="checkCircle" /> Provision Staff Account
-                </button>
+              {modalMode === 'create' && (
+                <div><label className="label">Temporary Password (Optional)</label><input type="password" className="input" value={tempPassword} onChange={e => setTempPassword(e.target.value)} /></div>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" className="btn btn-outline" onClick={() => setModalMode(null)} disabled={submitting}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Saving...' : 'Save'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Modal */}
+      {transferTarget && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal card card-pad" style={{ maxWidth: '420px', width: '100%' }}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-bold">Transfer Department</h3>
+              <button type="button" className="icon-btn" onClick={() => setTransferTarget(null)}><Icon name="x" size="sm" /></button>
+            </div>
+            <form onSubmit={handleTransfer} className="space-y-3">
+              <select className="input" value={transferDeptId} onChange={e => setTransferDeptId(e.target.value)} required>
+                {departments.map(d => <option key={d.id} value={String(d.id)}>{d.code} · {d.nameEn}</option>)}
+              </select>
+              <div className="flex justify-end gap-2">
+                <button type="button" className="btn btn-outline" onClick={() => setTransferTarget(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Transfer</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {resetTarget && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal card card-pad" style={{ maxWidth: '420px', width: '100%' }}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-bold">Reset Employee Password</h3>
+              <button type="button" className="icon-btn" onClick={() => setResetTarget(null)}><Icon name="x" size="sm" /></button>
+            </div>
+            <form onSubmit={handleResetPassword} className="space-y-3">
+              <div><label className="label">New Temporary Password (Optional)</label><input type="password" className="input" value={resetTempPw} onChange={e => setResetTempPw(e.target.value)} /></div>
+              <div className="flex justify-end gap-2">
+                <button type="button" className="btn btn-outline" onClick={() => setResetTarget(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Reset</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {detail && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal card card-pad" style={{ maxWidth: '460px', width: '100%' }}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-bold">{detail.fullNameEn}</h3>
+              <button type="button" className="icon-btn" onClick={() => setDetail(null)}><Icon name="x" size="sm" /></button>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="muted">Arabic Name</span><b>{detail.fullNameAr || '—'}</b></div>
+              <div className="flex justify-between"><span className="muted">Email</span><b>{detail.email}</b></div>
+              <div className="flex justify-between"><span className="muted">Phone</span><b>{detail.phoneNumber || '—'}</b></div>
+              <div className="flex justify-between"><span className="muted">Department</span><b>{detail.departmentName}</b></div>
+              <div className="flex justify-between"><span className="muted">Job Title</span><b>{detail.jobTitle || '—'}</b></div>
+              <div className="flex justify-between"><span className="muted">Hire Date</span><b>{detail.hireDate}</b></div>
+            </div>
+            <div className="flex justify-end mt-4">
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => setDetail(null)}>Close</button>
+            </div>
           </div>
         </div>
       )}

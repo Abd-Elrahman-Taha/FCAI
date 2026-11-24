@@ -1,8 +1,5 @@
 /**
  * Central Services Index
- *
- * Exports the shared API client, in-memory session store, confirmed endpoints,
- * and integrated backend domain services.
  */
 
 export {
@@ -14,5 +11,11 @@ export {
   academicYearService,
   academicLevelService,
   semesterService,
+  courseService,
+  departmentService,
+  policyService,
+  curriculumService,
+  adminPeopleService,
+  profileService,
 } from './api';
 export * from './endpoints';

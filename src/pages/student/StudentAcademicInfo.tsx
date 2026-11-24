@@ -1,163 +1,190 @@
+/**
+ * Screen 10: Student Academic Information, Level Progress & Credit Load
+ *
+ * Connected strictly to confirmed Swagger endpoints:
+ * - GET /api/students/me
+ * - GET /api/students/me/level
+ * - GET /api/students/me/credit-load
+ */
+
 import React, { useEffect, useState } from 'react';
-import { fakeApi } from '../../services/fakeApi';
+import { api } from '../../services/api';
+import type {
+  ResolvedCreditLoadDto,
+  StudentAcademicStandingDto,
+  StudentProfileResponseDto,
+} from '../../types/api';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';
+import { ActiveSemesterCard } from '../../components/common/ActiveSemesterCard';
 
 export const StudentAcademicInfo: React.FC = () => {
-  const [data, setData] = useState<any>(null);
+  const [profile, setProfile] = useState<StudentProfileResponseDto | null>(null);
+  const [standing, setStanding] = useState<StudentAcademicStandingDto | null>(null);
+  const [creditLoad, setCreditLoad] = useState<ResolvedCreditLoadDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fakeApi.getAcademicInfo().then(res => {
-      setData(res);
-      setLoading(false);
-    });
+    let cancelled = false;
+    Promise.all([
+      api.profile.student.getMe().catch(() => null),
+      api.profile.student.getLevel().catch(() => null),
+      api.profile.student.getCreditLoad().catch(() => null),
+    ])
+      .then(([p, lvl, cl]) => {
+        if (cancelled) return;
+        if (!p && !lvl && !cl) {
+          setError('Could not load your academic standing from the backend.');
+        } else {
+          setProfile(p);
+          setStanding(lvl);
+          setCreditLoad(cl);
+          setError(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  if (loading || !data) return <CardSkeleton count={4} />;
-
-  const { student, semesters } = data;
-  const progressPercent = Math.round((student.completedCredits / student.totalCredits) * 100);
-
   return (
-    <div>
+    <div className="space-y-6">
       <PageHead
-        title="Academic Information"
-        desc="Official degree progress, cumulative GPA metrics, and semester transcript history."
-        crumbs={[['Student Portal', '#/student/dashboard'], ['Academic Information']]}
+        crumbs={[
+          { label: 'Student', href: '#/student/dashboard' },
+          { label: 'Academic Information' },
+        ]}
+        title="Academic Standing & Credit Load"
+        subtitle="Live academic level progress, curriculum requirement group completion, and allowed credit hours for the active semester."
       />
 
-      {/* Top Academic Status Banner */}
-      <div className="card card-pad mb-6" style={{ background: 'var(--blue-50)', borderColor: 'var(--blue-200)' }}>
-        <div className="row-between wrap">
-          <div className="row gap-4">
-            <div className="avatar lg c1"><Icon name="graduation" size="lg" /></div>
-            <div>
-              <span className="badge b-info no-dot mb-1">{student.academicLevel}</span>
-              <h2 style={{ fontSize: '20px', fontWeight: 750 }}>Department of {student.department}</h2>
-              <p className="text-xs muted mt-1">
-                Matriculation Code: <b className="mono">{student.studentCode}</b> &nbsp;•&nbsp; Academic Year: {student.academicYear}
-              </p>
-            </div>
-          </div>
-          <div className="col gap-1 text-right">
-            <span className="text-xs muted">Official Status:</span>
-            <span className="badge b-success no-dot" style={{ fontSize: '14px', height: '28px', padding: '0 14px' }}>
-              ● {student.academicStatus}
-            </span>
-          </div>
+      <ActiveSemesterCard />
+
+      {loading ? (
+        <CardSkeleton />
+      ) : error ? (
+        <div className="card card-pad state">
+          <div className="state-art danger"><Icon name="alert" size="lg" /></div>
+          <h3>Academic information unavailable</h3>
+          <p className="text-sm muted">{error}</p>
         </div>
-      </div>
-
-      {/* Visualizations: GPA & Degree Progress */}
-      <div className="grid g-2 mb-6">
-        {/* GPA Visualization */}
-        <div className="card card-pad">
-          <div className="row-between mb-4">
-            <div>
-              <h3 style={{ fontSize: '16px', fontWeight: 700 }}><Icon name="award" size="sm" /> Grade Point Average (GPA)</h3>
-              <p className="text-xs muted">Calculated based on credit hours weighting out of 4.00.</p>
-            </div>
-            <span className="badge b-violet">Excellence</span>
-          </div>
-
-          <div className="row gap-6" style={{ alignItems: 'center' }}>
-            <div className="ring" style={{ '--p': Math.round((student.gpa / 4.0) * 100) } as React.CSSProperties}>
-              <div>
-                <b>{student.gpa}</b>
-                <span>/ 4.00</span>
+      ) : (
+        <div className="space-y-6">
+          {/* Summary KPI Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="card card-pad">
+              <span className="text-xs muted">Academic Level</span>
+              <div className="text-2xl font-extrabold mt-1">
+                {standing ? `Level ${standing.level}` : '—'}
+              </div>
+              <div className="text-xs muted mt-1">
+                {standing?.levelName} {standing?.levelNameAr ? `(${standing.levelNameAr})` : ''}
               </div>
             </div>
+            <div className="card card-pad">
+              <span className="text-xs muted">Cumulative GPA</span>
+              <div className="text-2xl font-extrabold mt-1">
+                {(standing?.cgpa ?? profile?.cgpa ?? 0).toFixed(2)}
+              </div>
+              <div className="text-xs muted mt-1">{profile?.academicStatus || 'Active'}</div>
+            </div>
+            <div className="card card-pad">
+              <span className="text-xs muted">Degree Progress</span>
+              <div className="text-2xl font-extrabold mt-1">
+                {standing ? `${standing.earnedHours} / ${standing.totalRequiredCredits}` : `${profile?.passedCredits ?? 0} cr`}
+              </div>
+              <div className="text-xs muted mt-1">
+                {standing ? `${standing.percentage.toFixed(1)}% completed · ${standing.remainingHours} cr left` : ''}
+              </div>
+            </div>
+            <div className="card card-pad">
+              <span className="text-xs muted">Allowed Credit Load</span>
+              <div className="text-2xl font-extrabold mt-1">
+                {creditLoad ? `${creditLoad.minCredits ?? 0}–${creditLoad.maxCredits} cr` : '—'}
+              </div>
+              <div className="text-xs muted mt-1">
+                {creditLoad ? `${creditLoad.registeredCredits} registered · ${creditLoad.remainingCredits} remaining` : 'No active semester load'}
+              </div>
+            </div>
+          </div>
 
-            <div className="col gap-3 flex-1">
-              <div className="info-tile">
-                <small>Cumulative GPA (CGPA)</small>
-                <div className="row-between">
-                  <b>{student.gpa} / 4.00</b>
-                  <span className="trend-up text-xs">↑ +0.08 term growth</span>
+          {/* Credit Load Details */}
+          {creditLoad && (
+            <div className="card card-pad space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-bold text-base">Semester Credit Load Resolution ({creditLoad.semesterName})</h3>
+                <span className="chip chip-primary">Rule Source: {creditLoad.source}</span>
+              </div>
+              {creditLoad.explanation && <p className="text-sm muted">{creditLoad.explanation}</p>}
+              <div className="flex flex-wrap gap-4 text-xs pt-1">
+                <span>CGPA Used: <b>{creditLoad.cgpaUsed?.toFixed(2) ?? 'N/A'}</b></span>
+                <span>Min Credits: <b>{creditLoad.minCredits ?? 'None'}</b></span>
+                <span>Max Credits: <b>{creditLoad.maxCredits}</b></span>
+                <span>Registered: <b>{creditLoad.registeredCredits}</b></span>
+                <span>Remaining Capacity: <b>{creditLoad.remainingCredits}</b></span>
+              </div>
+            </div>
+          )}
+
+          {/* Requirement Groups Progress */}
+          {standing && (standing.groups ?? []).length > 0 && (
+            <div className="card card-pad space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-base">Curriculum Progress ({standing.curriculumName || 'Assigned Curriculum'})</h3>
+                  {standing.nextLevelNumber && (
+                    <p className="text-xs muted">
+                      {standing.creditsToNextLevel} more credits required to reach Level {standing.nextLevelNumber}.
+                    </p>
+                  )}
                 </div>
               </div>
-              <div className="info-tile">
-                <small>Active Semester GPA (Fall 2026 Estimated)</small>
-                <b>3.65 / 4.00</b>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(standing.groups ?? []).map((g, idx) => {
+                  const pct = g.requiredHours > 0 ? Math.min(100, (g.earnedHours / g.requiredHours) * 100) : 0;
+                  return (
+                    <div key={idx} className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-bold">{g.groupCode} · {g.groupName}</span>
+                        <span className="font-mono text-xs">{g.earnedHours} / {g.requiredHours} cr</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                        <div className="h-full bg-[#38bdf8]" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="text-xs muted flex justify-between">
+                        <span>{g.groupNameAr || ''}</span>
+                        <span>{g.remainingHours} cr remaining</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* Credit Hours Progress */}
-        <div className="card card-pad">
-          <div className="row-between mb-4">
-            <div>
-              <h3 style={{ fontSize: '16px', fontWeight: 700 }}><Icon name="layers" size="sm" /> Completed Credit Hours</h3>
-              <p className="text-xs muted">Bachelor of Science in Computers &amp; AI graduation threshold.</p>
-            </div>
-            <span className="badge b-info">{progressPercent}% Completed</span>
-          </div>
-
-          <div className="col gap-3">
-            <div className="row-between text-sm">
-              <span><b>{student.completedCredits} CH</b> Completed</span>
-              <span className="muted">{student.totalCredits - student.completedCredits} CH Remaining (Total: {student.totalCredits} CH)</span>
-            </div>
-            <div className="progress success thick">
-              <span style={{ width: `${progressPercent}%` }} />
-            </div>
-
-            <div className="grid g-3 mt-3">
-              <div className="info-tile text-center">
-                <small>Completed</small>
-                <b className="text-primary">{student.completedCredits} CH</b>
-              </div>
-              <div className="info-tile text-center">
-                <small>In Progress</small>
-                <b>17 CH</b>
-              </div>
-              <div className="info-tile text-center">
-                <small>Remaining</small>
-                <b className="muted">{student.totalCredits - student.completedCredits - 17} CH</b>
+          {/* Non-Credit Required Courses */}
+          {standing && (standing.requiredNonCreditCourses ?? []).length > 0 && (
+            <div className="card card-pad space-y-3">
+              <h3 className="font-bold text-base">Required Non-Credit Courses</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {(standing.requiredNonCreditCourses ?? []).map(nc => (
+                  <div key={nc.courseId} className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-sm">
+                    <div>
+                      <b className="font-mono">{nc.courseCode}</b> · {nc.courseName}
+                    </div>
+                    <span className="chip">{nc.status}</span>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
+          )}
         </div>
-      </div>
-
-      {/* Semester Academic Summary Table */}
-      <div className="card">
-        <div className="card-head">
-          <div>
-            <h3><Icon name="calendar" size="sm" /> Semester Academic Summary</h3>
-            <p>Chronological term breakdown of completed semesters and GPA progression.</p>
-          </div>
-        </div>
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Academic Semester</th>
-                <th>Attempted Credits</th>
-                <th>Semester GPA</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {semesters.map((s: any, idx: number) => (
-                <tr key={idx}>
-                  <td><b>{s.term}</b></td>
-                  <td>{s.credits} Credit Hours</td>
-                  <td><b>{s.gpa} / 4.00</b></td>
-                  <td>
-                    <span className={`badge ${s.status === 'Active' ? 'b-info' : 'b-success'}`}>
-                      {s.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

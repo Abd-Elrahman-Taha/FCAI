@@ -129,6 +129,7 @@ import { EmployeeStudentLookup } from './pages/employee/EmployeeStudentLookup';
 import { ScreensDirectory } from './pages/common/ScreensDirectory';
 import { FigmaExportHub } from './pages/common/FigmaExportHub';
 import { HomePage } from './pages/common/HomePage';
+import { RoleProfilePage } from './pages/common/RoleProfilePage';
 import { DepartmentsPage } from './pages/public/DepartmentsPage';
 import { SmartFeaturesPage } from './pages/public/SmartFeaturesPage';
 import { AIAssistantLandingPage } from './pages/public/AIAssistantLandingPage';
@@ -462,6 +463,7 @@ const RouterView: React.FC = () => {
     if (cleanPath === 'screen/64' || cleanPath === 'doctor/reports') return <DoctorReports />;
     if (cleanPath === 'screen/65' || cleanPath === 'doctor/announcements') return <DoctorAnnouncements />;
     if (cleanPath === 'screen/66' || cleanPath === 'doctor/schedule') return <DoctorSchedule />;
+    if (cleanPath === 'doctor/profile') return <RoleProfilePage />;
 
     // 67-72: Teaching Assistant Portal
     if (cleanPath === 'screen/67' || cleanPath === 'ta' || cleanPath === 'ta/dashboard') return <TaDashboard />;
@@ -470,6 +472,7 @@ const RouterView: React.FC = () => {
     if (cleanPath === 'screen/70' || cleanPath === 'ta/section-grading') return <TaSectionGrading />;
     if (cleanPath === 'screen/71' || cleanPath === 'ta/attendance' || cleanPath === 'ta/sections') return <TaAttendance />;
     if (cleanPath === 'screen/72' || cleanPath === 'ta/discussions' || cleanPath === 'ta/schedule') return <TaDiscussionsSchedule />;
+    if (cleanPath === 'ta/profile') return <RoleProfilePage />;
 
     // 73-101: College Admin Portal
     if (cleanPath === 'screen/73' || cleanPath === 'admin' || cleanPath === 'admin/dashboard') return <AdminDashboard />;
@@ -485,12 +488,13 @@ const RouterView: React.FC = () => {
     if (cleanPath === 'screen/83' || cleanPath === 'admin/payment-monitoring' || cleanPath === 'admin/payments') return <AdminPaymentMonitoring />;
     if (cleanPath === 'screen/84' || cleanPath === 'admin/reports') return <AdminReports />;
     if (cleanPath === 'screen/85' || cleanPath === 'admin/regulations') return <AdminRegulations />;
+    if (cleanPath === 'admin/credit-load') return <AdminRegulations initialTab="credit-load" />;
     if (cleanPath === 'screen/86' || cleanPath === 'admin/academic-years' || cleanPath === 'admin/academic-structure') return <AdminAcademicYears />;
     if (cleanPath === 'screen/87' || cleanPath === 'admin/levels') return <AdminLevels />;
     if (cleanPath === 'screen/88' || cleanPath === 'admin/courses') return <AdminCourses />;
     if (cleanPath === 'screen/89' || cleanPath === 'admin/course-offerings' || cleanPath === 'admin/offerings') return <AdminCourseOfferings />;
     if (cleanPath === 'screen/90' || cleanPath === 'admin/sections') return <AdminSections />;
-    if (cleanPath === 'screen/91' || cleanPath === 'admin/registration-periods') return <AdminRegistrationPeriods />;
+    if (cleanPath === 'screen/91' || cleanPath === 'admin/registration-periods' || cleanPath === 'admin/semesters') return <AdminRegistrationPeriods />;
     if (cleanPath === 'screen/92' || cleanPath === 'admin/exam-management') return <AdminExamManagement />;
     if (cleanPath === 'screen/93' || cleanPath === 'admin/grade-management') return <AdminGradeManagement />;
     if (cleanPath === 'screen/94' || cleanPath === 'admin/grade-approval' || cleanPath === 'admin/grades') return <AdminGradeApproval />;
@@ -513,6 +517,7 @@ const RouterView: React.FC = () => {
     if (cleanPath === 'employee' || cleanPath === 'employee/dashboard') return <EmployeeDashboard />;
     if (cleanPath === 'employee/requests') return <EmployeeRequests />;
     if (cleanPath === 'employee/students' || cleanPath === 'employee/lookup') return <EmployeeStudentLookup />;
+    if (cleanPath === 'employee/profile') return <RoleProfilePage />;
 
     // Fallback: Current role dashboard
     return role === 'doctor' ? <DoctorDashboard /> :

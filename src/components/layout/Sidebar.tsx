@@ -122,6 +122,7 @@ export const Sidebar: React.FC<{ activePath: string }> = ({ activePath }) => {
           { label: 'Doctors', path: 'doctors', icon: 'briefcase' },
           { label: 'Teaching Assistants', path: 'tas', icon: 'users' },
           { label: 'Employees', path: 'employees', icon: 'idCard' },
+          { label: 'Admin Accounts', path: 'users', icon: 'shield' },
           { label: 'Departments', path: 'departments', icon: 'building' },
           { label: 'Permissions', path: 'permissions', icon: 'shield' }
         ]

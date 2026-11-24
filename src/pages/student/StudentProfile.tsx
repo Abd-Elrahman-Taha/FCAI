@@ -1,229 +1,165 @@
+/**
+ * Screen 9: Student Profile (Self-Service)
+ *
+ * Connected strictly to confirmed Swagger endpoints:
+ * - GET /api/students/me
+ * - PUT /api/students/me
+ */
+
 import React, { useEffect, useState } from 'react';
-import { fakeApi } from '../../services/fakeApi';
-import { useAuth } from '../../context/AuthContext';
+import { api, ApiError } from '../../services/api';
+import type { StudentProfileResponseDto } from '../../types/api';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
-import { User } from '../../types';
+import { CardSkeleton } from '../../components/common/LoadingSkeleton';
+import { useAuth } from '../../context/AuthContext';
 
 export const StudentProfile: React.FC = () => {
   const { showToast } = useAuth();
-  const [profile, setProfile] = useState<User | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+
+  const [profile, setProfile] = useState<StudentProfileResponseDto | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fakeApi.getStudentProfile().then(u => {
-      setProfile(u);
-      setPhone(u.phone || '');
-      setEmail(u.email || '');
-    });
-  }, []);
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
+  const [governorate, setGovernorate] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  if (!profile) return <div className="card card-pad"><div className="spinner lg mx-auto" /></div>;
+  useEffect(() => {
+    let cancelled = false;
+    api.profile.student
+      .getMe()
+      .then(data => {
+        if (cancelled) return;
+        setProfile(data);
+        setPhone(data.phone ?? '');
+        setEmail(data.email ?? '');
+        setAddress(data.address ?? '');
+        setGovernorate(data.governorate ?? '');
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load student profile.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone || !email) {
-      setError('Phone and email cannot be empty.');
-      return;
-    }
-    setIsSaving(true);
-    setError(null);
+    setSaveError(null);
+    setSaving(true);
     try {
-      const updated = await fakeApi.updateStudentProfile({ phone, email });
-      setProfile(updated);
-      setIsEditing(false);
-      showToast('Profile Updated', 'Your contact information was successfully saved.');
-    } catch (err: any) {
-      setError(err?.message || 'Failed to update profile.');
+      const res = await api.profile.student.updateContact({
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        address: address.trim() || null,
+        governorate: governorate.trim() || null,
+      });
+      setProfile(res.data);
+      showToast('Profile Updated', res.message, 'success');
+    } catch (err: unknown) {
+      setSaveError(err instanceof ApiError || err instanceof Error ? err.message : 'Update failed.');
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
-  };
-
-  const handleCancel = () => {
-    setPhone(profile.phone || '');
-    setEmail(profile.email || '');
-    setIsEditing(false);
-    setError(null);
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHead
-        title="Student Profile"
-        desc="Official institutional identity and editable personal contact information."
-        crumbs={[['Student Portal', '#/student/dashboard'], ['My Profile']]}
+        crumbs={[
+          { label: 'Student', href: '#/student/dashboard' },
+          { label: 'My Profile' },
+        ]}
+        title="My Student Profile"
+        subtitle="View your institutional student record and keep your contact information up to date."
         actions={
-          !isEditing ? (
-            <button type="button" className="btn btn-primary" onClick={() => setIsEditing(true)}>
-              <Icon name="edit" size="sm" /> Edit Personal Information
-            </button>
-          ) : (
-            <div className="row gap-2">
-              <button type="button" className="btn btn-ghost" onClick={handleCancel}>Cancel</button>
-              <button type="button" className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
-                {isSaving ? 'Saving…' : 'Save Changes'}
-              </button>
-            </div>
-          )
+          <a href="#/account-security" className="btn btn-outline btn-sm">
+            <Icon name="shield" size="sm" /> Account Security
+          </a>
         }
       />
 
-      {error && (
-        <div className="alert alert-danger mb-4">
-          <Icon name="alertCircle" />
-          <div><b>Validation Error</b><p>{error}</p></div>
+      {loading ? (
+        <CardSkeleton />
+      ) : error || !profile ? (
+        <div className="card card-pad state">
+          <div className="state-art danger"><Icon name="alert" size="lg" /></div>
+          <h3>Could not load student profile</h3>
+          <p className="text-sm muted">{error || 'Profile unavailable.'}</p>
         </div>
-      )}
-
-      <div className="grid g-main">
-        {/* Left Column: Form & Fields */}
-        <div className="col gap-6">
-          {/* Official University Identity (Read-only / Controlled by College) */}
-          <div className="card card-pad">
-            <div className="row-between mb-4">
-              <div>
-                <h3 style={{ fontSize: '16px', fontWeight: 700 }}>
-                  <Icon name="shieldCheck" size="sm" /> Official College Records
-                </h3>
-                <p className="text-xs muted">Controlled exclusively by the FCAI BSU Dean &amp; Student Affairs administration.</p>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-5 card card-pad space-y-4">
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div className="w-12 h-12 rounded-2xl bg-[#052659] text-white flex items-center justify-center font-bold text-lg">
+                {(profile.fullNameEn || 'ST').slice(0, 2).toUpperCase()}
               </div>
-              <span className="badge b-navy no-dot">Verified Institutional Data</span>
+              <div>
+                <h3 className="font-bold text-base">{profile.fullNameEn}</h3>
+                {profile.fullNameAr && <p className="text-xs muted" dir="rtl">{profile.fullNameAr}</p>}
+              </div>
             </div>
 
-            <div className="form-grid">
-              <div className="field">
-                <label className="label">Full Legal Name <Icon name="lock" size="sm" className="lock" /></label>
-                <input className="input" value={profile.name} readOnly disabled />
-              </div>
-
-              <div className="field">
-                <label className="label">Student Code <Icon name="lock" size="sm" className="lock" /></label>
-                <input className="input mono" value={profile.studentCode} readOnly disabled />
-              </div>
-
-              <div className="field">
-                <label className="label">National ID (14 Digits) <Icon name="lock" size="sm" className="lock" /></label>
-                <input className="input mono" value={profile.nationalId} readOnly disabled />
-              </div>
-
-              <div className="field">
-                <label className="label">Department <Icon name="lock" size="sm" className="lock" /></label>
-                <input className="input" value={profile.department} readOnly disabled />
-              </div>
-
-              <div className="field">
-                <label className="label">Current Academic Level <Icon name="lock" size="sm" className="lock" /></label>
-                <input className="input" value={profile.academicLevel} readOnly disabled />
-              </div>
-
-              <div className="field">
-                <label className="label">Academic Status <Icon name="lock" size="sm" className="lock" /></label>
-                <input className="input" value={profile.academicStatus} readOnly disabled />
-              </div>
-
-              <div className="field">
-                <label className="label">Date of Birth <Icon name="lock" size="sm" className="lock" /></label>
-                <input className="input" value={profile.birthDate} readOnly disabled />
-              </div>
-
-              <div className="field">
-                <label className="label">Gender <Icon name="lock" size="sm" className="lock" /></label>
-                <input className="input" value={profile.gender} readOnly disabled />
-              </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="muted">Student Code</span><b className="font-mono">{profile.studentCode}</b></div>
+              <div className="flex justify-between"><span className="muted">National ID</span><b className="font-mono">{profile.nationalId}</b></div>
+              <div className="flex justify-between"><span className="muted">Department</span><b>{profile.departmentName || '—'}</b></div>
+              <div className="flex justify-between"><span className="muted">Academic Status</span><span className="chip chip-primary">{profile.academicStatus}</span></div>
+              <div className="flex justify-between"><span className="muted">CGPA</span><b>{profile.cgpa.toFixed(2)}</b></div>
+              <div className="flex justify-between"><span className="muted">Passed Credits</span><b>{profile.passedCredits} cr</b></div>
+              <div className="flex justify-between"><span className="muted">Admission Year</span><b>{profile.admissionYear}</b></div>
+              <div className="flex justify-between"><span className="muted">Secondary Track</span><b>{profile.secondaryTrack} ({profile.secondaryScore})</b></div>
+              <div className="flex justify-between"><span className="muted">Academic Advisor</span><b>{profile.academicAdvisorName || 'Unassigned'}</b></div>
+              <div className="flex justify-between"><span className="muted">Warnings</span><b>{profile.totalWarningsCount} total ({profile.consecutiveWarningsCount} consecutive)</b></div>
             </div>
           </div>
 
-          {/* Editable Personal Fields */}
-          <div className="card card-pad">
-            <div className="row-between mb-4">
-              <div>
-                <h3 style={{ fontSize: '16px', fontWeight: 700 }}>
-                  <Icon name="user" size="sm" /> Personal Contact Details
-                </h3>
-                <p className="text-xs muted">Editable by the student for correspondence and emergency alerts.</p>
+          <div className="lg:col-span-7 card card-pad">
+            <h3 className="text-base font-bold mb-1">Update Contact Information</h3>
+            <p className="text-xs muted mb-4">Only contact fields are editable by students. Academic records are maintained by Student Affairs.</p>
+            {saveError && (
+              <div className="alert alert-danger mb-3 text-sm">
+                <Icon name="alert" size="sm" />
+                <span>{saveError}</span>
               </div>
-              {isEditing ? (
-                <span className="badge b-warning">Editing Mode</span>
-              ) : (
-                <span className="badge b-success no-dot">Up to date</span>
-              )}
-            </div>
-
-            <form onSubmit={handleSave} className="form-grid">
-              <div className="field">
-                <label className="label">Contact Phone Number {isEditing && <span className="req">*</span>}</label>
-                <div className="input-group">
-                  <span className="lead"><Icon name="phone" size="sm" /></span>
-                  <input
-                    className="input"
-                    type="tel"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    readOnly={!isEditing}
-                    disabled={!isEditing}
-                    required
-                  />
+            )}
+            <form onSubmit={handleSave} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Email Address</label>
+                  <input type="email" className="input" value={email} onChange={e => setEmail(e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Phone Number</label>
+                  <input className="input" value={phone} onChange={e => setPhone(e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Governorate</label>
+                  <input className="input" value={governorate} onChange={e => setGovernorate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Address</label>
+                  <input className="input" value={address} onChange={e => setAddress(e.target.value)} />
                 </div>
               </div>
-
-              <div className="field">
-                <label className="label">Contact Email Address {isEditing && <span className="req">*</span>}</label>
-                <div className="input-group">
-                  <span className="lead"><Icon name="mail" size="sm" /></span>
-                  <input
-                    className="input"
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    readOnly={!isEditing}
-                    disabled={!isEditing}
-                    required
-                  />
-                </div>
+              <div className="flex justify-end">
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? 'Saving...' : 'Save Contact Info'}
+                </button>
               </div>
-
-              {isEditing && (
-                <div className="full row gap-2 mt-2" style={{ justifyContent: 'flex-end' }}>
-                  <button type="button" className="btn btn-secondary" onClick={handleCancel}>Cancel</button>
-                  <button type="submit" className="btn btn-primary" disabled={isSaving}>
-                    {isSaving ? 'Saving…' : 'Save Changes'}
-                  </button>
-                </div>
-              )}
             </form>
           </div>
         </div>
-
-        {/* Right Column: Identity Card Preview */}
-        <div className="col gap-6">
-          <div className="card card-pad text-center">
-            <div className="avatar lg mx-auto mb-4" style={{ width: '84px', height: '84px', fontSize: '28px' }}>
-              {profile.short}
-            </div>
-            <h2 style={{ fontSize: '18px', fontWeight: 700 }}>{profile.name}</h2>
-            <p className="text-xs muted mt-1">{profile.meta}</p>
-            <div className="badge b-info no-dot mt-3">Active Matriculation</div>
-
-            <div className="divider" />
-
-            <div className="kv text-left text-xs">
-              <dt>Student ID:</dt>
-              <dd className="mono">{profile.studentCode}</dd>
-              <dt>Academic Year:</dt>
-              <dd>{profile.academicYear}</dd>
-              <dt>Cumulative GPA:</dt>
-              <dd className="fw-7">{profile.gpa} / 4.00</dd>
-              <dt>Credit Hours:</dt>
-              <dd>{profile.completedCredits} Completed</dd>
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

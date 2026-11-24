@@ -7,9 +7,8 @@
  * - /api/admin/academic-levels
  */
 
-export type SemesterType = 'Fall' | 'Spring' | 'Summer';
-
-export type WindowStatus = 'NotConfigured' | 'Upcoming' | 'Open' | 'Closed';
+import type { SemesterType, WindowStatus } from './swagger.types';
+export type { SemesterType, WindowStatus };
 
 export interface SemesterSummary {
   id: number;

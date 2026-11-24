@@ -1,135 +1,514 @@
-import React, { useState } from 'react';
+/**
+ * Screen 95: Grade Scale Versions Management (Admin)
+ *
+ * Connected strictly to all 5 confirmed Swagger GradeScaleVersions endpoints:
+ * - GET  /api/admin/grade-scale-versions
+ * - POST /api/admin/grade-scale-versions
+ * - GET  /api/admin/grade-scale-versions/{id}
+ * - PUT  /api/admin/grade-scale-versions/{id}/scales
+ * - POST /api/admin/grade-scale-versions/{id}/activate
+ */
+
+import React, { useCallback, useEffect, useState } from 'react';
+import { api, ApiError } from '../../services/api';
+import type {
+  GradeScaleRowDto,
+  GradeScaleVersionDto,
+  GradeScaleVersionSummaryDto,
+} from '../../types/api';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
+import { CardSkeleton } from '../../components/common/LoadingSkeleton';
 import { useAuth } from '../../context/AuthContext';
+
+const emptyRow = (sortOrder: number): GradeScaleRowDto => ({
+  id: null,
+  symbol: '',
+  scaleType: 'Letter',
+  minPercentage: 0,
+  maxPercentage: 100,
+  gradePoints: 0,
+  includedInGpa: true,
+  appliesTo: 'All',
+  description: '',
+  sortOrder,
+});
 
 export const AdminGradeScale: React.FC = () => {
   const { showToast } = useAuth();
-  const [saving, setSaving] = useState(false);
 
-  // Statutory Grade Scale for Beni Suef University Credit Hour System
-  const [scale, setScale] = useState([
-    { letter: 'A+', min: 95, max: 100, gpa: 4.00, desc: 'Excellent (High Distinction)', passed: true },
-    { letter: 'A', min: 90, max: 94, gpa: 3.70, desc: 'Excellent', passed: true },
-    { letter: 'B+', min: 85, max: 89, gpa: 3.30, desc: 'Very Good (High)', passed: true },
-    { letter: 'B', min: 80, max: 84, gpa: 3.00, desc: 'Very Good', passed: true },
-    { letter: 'C+', min: 75, max: 79, gpa: 2.70, desc: 'Good (High)', passed: true },
-    { letter: 'C', min: 70, max: 74, gpa: 2.40, desc: 'Good', passed: true },
-    { letter: 'D+', min: 65, max: 69, gpa: 2.00, desc: 'Satisfactory (High)', passed: true },
-    { letter: 'D', min: 60, max: 64, gpa: 1.70, desc: 'Satisfactory (Minimum Pass)', passed: true },
-    { letter: 'F', min: 0, max: 59, gpa: 0.00, desc: 'Fail', passed: false },
-    { letter: 'Fw', min: 0, max: 0, gpa: 0.00, desc: 'Deprived from Exam (<75% Attendance)', passed: false },
-    { letter: 'I', min: 0, max: 0, gpa: 0.00, desc: 'Incomplete (Approved Official Excuse)', passed: false }
-  ]);
+  const [versions, setVersions] = useState<GradeScaleVersionSummaryDto[]>([]);
+  const [selectedVersion, setSelectedVersion] = useState<GradeScaleVersionDto | null>(null);
+  const [rows, setRows] = useState<GradeScaleRowDto[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [loadingDetail, setLoadingDetail] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const handleSaveScale = async () => {
-    setSaving(true);
-    await new Promise(r => setTimeout(r, 400));
-    setSaving(false);
-    showToast('Statutory grade scale regulations persisted to database.', 'success');
+  // Create modal
+  const [showCreate, setShowCreate] = useState<boolean>(false);
+  const [newName, setNewName] = useState<string>('');
+  const [effectiveFrom, setEffectiveFrom] = useState<string>('');
+  const [baseVersionId, setBaseVersionId] = useState<string>('');
+  const [useDefaultScale, setUseDefaultScale] = useState<boolean>(true);
+  const [creating, setCreating] = useState<boolean>(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  // Save & Activate states
+  const [savingScales, setSavingScales] = useState<boolean>(false);
+  const [activating, setActivating] = useState<boolean>(false);
+  const [warnings, setWarnings] = useState<string[]>([]);
+
+  const loadVersionDetail = useCallback(async (id: number) => {
+    setLoadingDetail(true);
+    setWarnings([]);
+    try {
+      const detail = await api.policies.getGradeScaleVersionById(id);
+      setSelectedVersion(detail);
+      setRows((detail.scales ?? []).map(r => ({ ...r })));
+    } catch (err: unknown) {
+      showToast('Load Failed', err instanceof Error ? err.message : 'Failed to load version details.', 'error');
+    } finally {
+      setLoadingDetail(false);
+    }
+  }, [showToast]);
+
+  const loadVersions = useCallback(async (keepId?: number) => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const list = await api.policies.listGradeScaleVersions();
+      setVersions(list);
+      const targetId = keepId ?? list.find(v => v.isActive)?.id ?? list[0]?.id;
+      if (targetId !== undefined) {
+        const detail = await api.policies.getGradeScaleVersionById(targetId);
+        setSelectedVersion(detail);
+        setRows((detail.scales ?? []).map(r => ({ ...r })));
+      } else {
+        setSelectedVersion(null);
+        setRows([]);
+      }
+    } catch (err: unknown) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load grade scale versions.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.policies
+      .listGradeScaleVersions()
+      .then(async list => {
+        if (cancelled) return;
+        setVersions(list);
+        const targetId = list.find(v => v.isActive)?.id ?? list[0]?.id;
+        if (targetId !== undefined) {
+          const detail = await api.policies.getGradeScaleVersionById(targetId);
+          if (!cancelled) {
+            setSelectedVersion(detail);
+            setRows((detail.scales ?? []).map(r => ({ ...r })));
+          }
+        }
+        setLoadError(null);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load grade scales.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateError(null);
+    if (!newName.trim() || !effectiveFrom) {
+      setCreateError('Name and effective-from date are required.');
+      return;
+    }
+    setCreating(true);
+    try {
+      const res = await api.policies.createGradeScaleVersion({
+        name: newName.trim(),
+        effectiveFrom,
+        baseVersionId: baseVersionId ? Number(baseVersionId) : null,
+        useDefaultScale: !baseVersionId && useDefaultScale,
+      });
+      showToast('Version Created', res.message, 'success');
+      setShowCreate(false);
+      setNewName('');
+      setEffectiveFrom('');
+      setBaseVersionId('');
+      await loadVersions(res.data.id);
+    } catch (err: unknown) {
+      setCreateError(err instanceof ApiError || err instanceof Error ? err.message : 'Failed to create version.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const updateRow = <K extends keyof GradeScaleRowDto>(index: number, field: K, value: GradeScaleRowDto[K]) => {
+    setRows(prev => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+  };
+
+  const handleSaveScales = async () => {
+    if (!selectedVersion) return;
+    setSavingScales(true);
+    try {
+      const res = await api.policies.setGradeScales(selectedVersion.id, {
+        scales: rows.map((r, i) => ({ ...r, sortOrder: r.sortOrder || i + 1 })),
+      });
+      setSelectedVersion(res.data);
+      setRows((res.data.scales ?? []).map(r => ({ ...r })));
+      showToast('Grade Scale Saved', res.message, 'success');
+      await loadVersions(selectedVersion.id);
+    } catch (err: unknown) {
+      showToast('Save Failed', err instanceof Error ? err.message : 'Failed to save grade scale rows.', 'error');
+    } finally {
+      setSavingScales(false);
+    }
+  };
+
+  const handleActivate = async () => {
+    if (!selectedVersion) return;
+    setActivating(true);
+    setWarnings([]);
+    try {
+      const res = await api.policies.activateGradeScaleVersion(selectedVersion.id);
+      if (res.data.warnings && res.data.warnings.length > 0) {
+        setWarnings(res.data.warnings);
+      }
+      showToast('Grade Scale Activated', res.message, 'success');
+      await loadVersions(selectedVersion.id);
+    } catch (err: unknown) {
+      showToast('Activation Failed', err instanceof Error ? err.message : 'Failed to activate version.', 'error');
+    } finally {
+      setActivating(false);
+    }
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHead
-        title="Screen 95: Institutional Grade Scales & GPA Calculation Regulations"
-        subtitle="Configure letter grade mark boundaries, 4.0 GPA points conversions, and official special status codes"
-        breadcrumbs={[
-          { label: 'College Admin', href: '#/admin/dashboard' },
-          { label: 'Screen 93: Grade Operations', href: '#/admin/grade-management' },
-          { label: 'Screen 95: Grade Scale' }
+        crumbs={[
+          { label: 'Admin', href: '#/admin/dashboard' },
+          { label: 'Operations' },
+          { label: 'Grade Scale Versions' },
         ]}
+        title="Grade Scale Versions"
+        subtitle="Manage versioned grading scales, edit draft grade-point rows, and activate new grading bylaws."
         actions={
-          <div className="row gap-2">
-            <button className="btn btn-secondary" onClick={() => showToast('Reverted to Egyptian Supreme Council of Universities standard.', 'info')}>
-              <Icon name="refresh" /> Standard Baseline
-            </button>
-            <button className="btn btn-primary" onClick={handleSaveScale} disabled={saving}>
-              <Icon name="checkCircle" /> {saving ? 'Saving...' : 'Save Grade Scale'}
-            </button>
-          </div>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
+            <Icon name="plus" size="sm" /> New Grade Scale Version
+          </button>
         }
       />
 
-      {/* Bylaw Banner */}
-      <div className="card p-4 mb-4" style={{ background: 'var(--color-bg-page)', borderLeft: '4px solid var(--color-primary)' }}>
-        <div className="row-between wrap gap-2">
-          <div>
-            <span className="badge badge-primary mb-1">Accreditation Standard</span>
-            <h3 className="mt-1">Beni Suef University Credit-Hour Bylaw v3.2</h3>
-            <p className="text-xs sub mt-1">
-              Minimum cumulative GPA for graduation is <strong>2.00 / 4.00</strong> (Satisfactory). Minimum passing mark per individual course is <strong>60% (D)</strong>.
-            </p>
+      {loading ? (
+        <CardSkeleton />
+      ) : loadError ? (
+        <div className="card card-pad state">
+          <div className="state-art danger"><Icon name="alert" size="lg" /></div>
+          <h3>Could not load grade scales</h3>
+          <p className="text-sm muted">{loadError}</p>
+          <button type="button" className="btn btn-primary btn-sm mt-3" onClick={() => void loadVersions()}>Retry</button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Versions List */}
+          <div className="lg:col-span-4 space-y-3">
+            <div className="card card-pad space-y-2">
+              <div className="font-bold text-sm mb-2">Versions ({versions.length})</div>
+              {versions.length === 0 ? (
+                <p className="text-xs muted">No grade scale versions created yet.</p>
+              ) : (
+                versions.map(v => {
+                  const isSelected = selectedVersion?.id === v.id;
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => void loadVersionDetail(v.id)}
+                      className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-sky-400 bg-sky-500/10'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-sky-400/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-sm">{v.name || `Version #${v.id}`}</span>
+                        <span className={v.isActive ? 'chip chip-primary' : 'chip'}>
+                          {v.status || (v.isActive ? 'Active' : 'Draft')}
+                        </span>
+                      </div>
+                      <div className="text-xs muted mt-1">
+                        Effective: {v.effectiveFrom} · {v.scaleRowsCount} rows
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
-          <span className="badge badge-success">Fully Accredited</span>
-        </div>
-      </div>
 
-      {/* Grade Scale Table */}
-      <div className="card overflow-hidden mb-4">
-        <div className="card-head">
-          <h3>4.0 Grade Point Average Conversion Table</h3>
-          <span className="badge badge-neutral">{scale.length} Grade Definitions</span>
-        </div>
+          {/* Selected Version Editor */}
+          <div className="lg:col-span-8">
+            {loadingDetail ? (
+              <CardSkeleton />
+            ) : !selectedVersion ? (
+              <div className="card card-pad state">
+                <div className="state-art"><Icon name="scale" size="lg" /></div>
+                <h3>Select a Grade Scale Version</h3>
+                <p className="text-sm muted">Choose a version from the left or create a new draft version.</p>
+              </div>
+            ) : (
+              <div className="card card-pad space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold">{selectedVersion.name}</h3>
+                      <span className={selectedVersion.isActive ? 'chip chip-primary' : 'chip'}>
+                        {selectedVersion.status}
+                      </span>
+                    </div>
+                    <p className="text-xs muted">
+                      Effective from {selectedVersion.effectiveFrom}
+                      {selectedVersion.effectiveTo ? ` to ${selectedVersion.effectiveTo}` : ''} ·{' '}
+                      {selectedVersion.isEditable ? 'Editable Draft' : 'Locked'}
+                    </p>
+                  </div>
 
-        <div className="table-responsive">
-          <table className="table">
-            <thead>
-              <tr>
-                <th style={{ width: '90px' }}>Letter</th>
-                <th style={{ width: '150px' }}>Percentage Range</th>
-                <th style={{ width: '130px' }} className="text-center">GPA Points (4.0)</th>
-                <th>Academic Distinction Description</th>
-                <th style={{ width: '130px' }} className="text-center">Credit Earned</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scale.map((s, idx) => (
-                <tr key={idx}>
-                  <td>
-                    <span className={`badge ${s.passed ? (s.gpa >= 3.0 ? 'badge-success' : 'badge-primary') : 'badge-danger'} bold text-sm`}>
-                      {s.letter}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="font-mono text-sm">
-                      {s.letter === 'Fw' ? 'Deprived' : s.letter === 'I' ? 'Excused' : `${s.min}% – ${s.max}%`}
-                    </span>
-                  </td>
-                  <td className="text-center bold font-mono text-primary" style={{ fontSize: '15px' }}>
-                    {s.gpa.toFixed(2)}
-                  </td>
-                  <td>
-                    <div className="bold text-sm">{s.desc}</div>
-                  </td>
-                  <td className="text-center">
-                    <span className={`badge ${s.passed ? 'badge-success' : 'badge-neutral'}`}>
-                      {s.passed ? 'Yes (Pass)' : 'No (0 Cr)'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  <div className="flex items-center gap-2">
+                    {selectedVersion.isEditable && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-xs"
+                          onClick={() => setRows(prev => [...prev, emptyRow(prev.length + 1)])}
+                        >
+                          <Icon name="plus" size="sm" /> Add Row
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-xs"
+                          disabled={savingScales}
+                          onClick={() => void handleSaveScales()}
+                        >
+                          {savingScales ? 'Saving...' : 'Save Scales'}
+                        </button>
+                      </>
+                    )}
+                    {!selectedVersion.isActive && (
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-xs"
+                        disabled={activating}
+                        onClick={() => void handleActivate()}
+                      >
+                        {activating ? 'Activating...' : 'Activate Version'}
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-      {/* Special Standing Regulations */}
-      <div className="grid g-2">
-        <div className="card p-4">
-          <h3 className="mb-2">Graduation Honors Standing</h3>
-          <p className="text-sm sub leading-relaxed">
-            First Class Honors is awarded to graduating seniors who achieve a cumulative GPA of <strong>3.50 or higher</strong>, provided they have never failed or received an F in any registered course throughout their degree.
-          </p>
-        </div>
+                {warnings.length > 0 && (
+                  <div className="alert alert-warning text-xs space-y-1">
+                    <div className="font-bold">Activation Warnings:</div>
+                    {warnings.map((w, i) => <div key={i}>• {w}</div>)}
+                  </div>
+                )}
 
-        <div className="card p-4">
-          <h3 className="mb-2">Incomplete (I) Grade Policy</h3>
-          <p className="text-sm sub leading-relaxed">
-            Students who miss a final examination due to documented emergency approved by the Dean will receive an <strong>I</strong> grade. The incomplete exam must be cleared within the first 3 weeks of the subsequent semester, or it automatically converts to an <strong>F</strong>.
-          </p>
+                <div className="overflow-x-auto">
+                  <table className="table w-full text-xs">
+                    <thead>
+                      <tr>
+                        <th>Symbol</th>
+                        <th>Type</th>
+                        <th>Min %</th>
+                        <th>Max %</th>
+                        <th>Points</th>
+                        <th>In GPA</th>
+                        <th>Applies To</th>
+                        <th>Order</th>
+                        {selectedVersion.isEditable && <th />}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((r, idx) => (
+                        <tr key={r.id ?? `new-${idx}`}>
+                          <td>
+                            <input
+                              className="input"
+                              style={{ minWidth: '64px' }}
+                              disabled={!selectedVersion.isEditable}
+                              value={r.symbol ?? ''}
+                              onChange={e => updateRow(idx, 'symbol', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className="input"
+                              style={{ minWidth: '88px' }}
+                              disabled={!selectedVersion.isEditable}
+                              value={r.scaleType ?? ''}
+                              onChange={e => updateRow(idx, 'scaleType', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              step="0.01"
+                              className="input"
+                              style={{ width: '74px' }}
+                              disabled={!selectedVersion.isEditable}
+                              value={r.minPercentage ?? ''}
+                              onChange={e => updateRow(idx, 'minPercentage', e.target.value === '' ? null : Number(e.target.value))}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              step="0.01"
+                              className="input"
+                              style={{ width: '74px' }}
+                              disabled={!selectedVersion.isEditable}
+                              value={r.maxPercentage ?? ''}
+                              onChange={e => updateRow(idx, 'maxPercentage', e.target.value === '' ? null : Number(e.target.value))}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              step="0.01"
+                              className="input"
+                              style={{ width: '72px' }}
+                              disabled={!selectedVersion.isEditable}
+                              value={r.gradePoints ?? ''}
+                              onChange={e => updateRow(idx, 'gradePoints', e.target.value === '' ? null : Number(e.target.value))}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="checkbox"
+                              disabled={!selectedVersion.isEditable}
+                              checked={r.includedInGpa}
+                              onChange={e => updateRow(idx, 'includedInGpa', e.target.checked)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className="input"
+                              style={{ minWidth: '88px' }}
+                              disabled={!selectedVersion.isEditable}
+                              value={r.appliesTo ?? ''}
+                              onChange={e => updateRow(idx, 'appliesTo', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              className="input"
+                              style={{ width: '64px' }}
+                              disabled={!selectedVersion.isEditable}
+                              value={r.sortOrder}
+                              onChange={e => updateRow(idx, 'sortOrder', Number(e.target.value))}
+                            />
+                          </td>
+                          {selectedVersion.isEditable && (
+                            <td>
+                              <button
+                                type="button"
+                                className="btn btn-danger btn-xs"
+                                onClick={() => setRows(prev => prev.filter((_, i) => i !== idx))}
+                              >
+                                ×
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Create Version Modal */}
+      {showCreate && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal card card-pad" style={{ maxWidth: '480px', width: '100%' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">New Grade Scale Version</h3>
+              <button type="button" className="icon-btn" onClick={() => !creating && setShowCreate(false)}>
+                <Icon name="x" size="sm" />
+              </button>
+            </div>
+            {createError && (
+              <div className="alert alert-danger mb-3 text-sm">
+                <Icon name="alert" size="sm" />
+                <span>{createError}</span>
+              </div>
+            )}
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div>
+                <label className="label">Version Name</label>
+                <input
+                  className="input"
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  placeholder="e.g. Bylaw 2026 Grade Scale"
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Effective From</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={effectiveFrom}
+                  onChange={e => setEffectiveFrom(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Clone From Base Version (Optional)</label>
+                <select className="input" value={baseVersionId} onChange={e => setBaseVersionId(e.target.value)}>
+                  <option value="">None</option>
+                  {versions.map(v => (
+                    <option key={v.id} value={String(v.id)}>
+                      {v.name} (#{v.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {!baseVersionId && (
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useDefaultScale}
+                    onChange={e => setUseDefaultScale(e.target.checked)}
+                  />
+                  <span>Initialize with default FCAI grade scale rows</span>
+                </label>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" className="btn btn-outline" onClick={() => setShowCreate(false)} disabled={creating}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={creating}>
+                  {creating ? 'Creating...' : 'Create Draft'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

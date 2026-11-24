@@ -1,8 +1,8 @@
 /**
- * Real Backend API Facade
+ * Real Backend API Facade — All 136 Confirmed Swagger Endpoints
  *
- * Exposes ONLY the shared API client, in-memory auth session, and confirmed
- * backend domain services. Contains NO mock data imports and NO silent fallback proxy.
+ * Single unified entry point exposing the shared API client, auth session,
+ * and every Swagger-confirmed domain service. Zero mock fallbacks.
  */
 
 import { config } from '../config/env';
@@ -12,6 +12,12 @@ import { authService } from './authService';
 import { academicYearService } from './academicYearService';
 import { academicLevelService } from './academicLevelService';
 import { semesterService } from './semesterService';
+import { courseService } from './courseService';
+import { departmentService } from './departmentService';
+import { policyService } from './policyService';
+import { curriculumService } from './curriculumService';
+import { adminPeopleService } from './adminPeopleService';
+import { profileService } from './profileService';
 
 export const api = {
   config,
@@ -21,6 +27,12 @@ export const api = {
   academicYears: academicYearService,
   academicLevels: academicLevelService,
   semesters: semesterService,
+  courses: courseService,
+  departments: departmentService,
+  policies: policyService,
+  curriculum: curriculumService,
+  people: adminPeopleService,
+  profile: profileService,
 } as const;
 
 export {
@@ -31,6 +43,12 @@ export {
   academicYearService,
   academicLevelService,
   semesterService,
+  courseService,
+  departmentService,
+  policyService,
+  curriculumService,
+  adminPeopleService,
+  profileService,
 };
 
 export default api;

@@ -500,8 +500,25 @@ export class ApiClient {
     });
   }
 
+  public patchEnvelope<T>(
+    endpoint: string,
+    body?: unknown,
+    options: RequestOptions = {}
+  ): Promise<ApiResponse<T>> {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+    return this.requestEnvelope<T>(endpoint, {
+      ...options,
+      method: 'PATCH',
+      body: isFormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  }
+
   public delete<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: 'DELETE' });
+  }
+
+  public deleteEnvelope<T>(endpoint: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
+    return this.requestEnvelope<T>(endpoint, { ...options, method: 'DELETE' });
   }
 
   public upload<T>(endpoint: string, formData: FormData, options: RequestOptions = {}): Promise<T> {
