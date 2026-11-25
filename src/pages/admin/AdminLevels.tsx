@@ -13,6 +13,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { api, ApiError } from '../../services/api';
 import type { AcademicLevel, AcademicLevelsResponse } from '../../types/api/academic.types';
+import type { PolicyVersionListItemDto } from '../../types/api';
 import { PageHead } from '../../components/layout/Breadcrumbs';
 import { Icon } from '../../components/icons/Icon';
 import { CardSkeleton } from '../../components/common/LoadingSkeleton';
@@ -45,6 +46,7 @@ function toEditableRows(levels: AcademicLevel[]): EditableLevelRow[] {
 export const AdminLevels: React.FC = () => {
   const { showToast } = useAuth();
 
+  const [policies, setPolicies] = useState<PolicyVersionListItemDto[]>([]);
   const [policyInput, setPolicyInput] = useState<string>('');
   const [appliedPolicyId, setAppliedPolicyId] = useState<number | undefined>(undefined);
 
@@ -78,6 +80,19 @@ export const AdminLevels: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.policies
+      .listPolicies()
+      .then(list => {
+        if (!cancelled) setPolicies(list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -286,18 +301,26 @@ export const AdminLevels: React.FC = () => {
         <form onSubmit={handlePolicyFilterSubmit} className="row-between wrap gap-3 align-center">
           <div className="row gap-2 wrap align-center">
             <label htmlFor="policy-version-input" className="text-xs fw-7 muted">
-              Policy Version ID (optional):
+              Policy Version:
             </label>
-            <input
+            <select
               id="policy-version-input"
-              type="number"
-              min={1}
               className="input"
-              style={{ width: '160px', height: '36px' }}
-              placeholder="Active policy"
+              style={{ width: 'auto', minWidth: '220px', height: '38px' }}
               value={policyInput}
-              onChange={e => setPolicyInput(e.target.value)}
-            />
+              onChange={e => {
+                const val = e.target.value;
+                setPolicyInput(val);
+                setAppliedPolicyId(val ? Number(val) : undefined);
+              }}
+            >
+              <option value="">Active Policy (Default)</option>
+              {policies.map(p => (
+                <option key={p.id} value={String(p.id)}>
+                  {p.name || `Policy v${p.versionNumber}`} (#{p.id}){p.isActive ? ' · Active' : ''}
+                </option>
+              ))}
+            </select>
             <button type="submit" className="btn btn-secondary btn-sm" disabled={loading}>
               Load Policy
             </button>
